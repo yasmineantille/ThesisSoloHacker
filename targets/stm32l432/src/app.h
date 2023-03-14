@@ -56,8 +56,8 @@ int solo_is_locked();
 //#define TEST_POWER
 
 //                              0xRRGGBB
-#define LED_INIT_VALUE			0x000800
-#define LED_WINK_VALUE			0x000010
+#define LED_INIT_VALUE			0xFF0800
+#define LED_WINK_VALUE			0xFFFF00
 #define LED_MAX_SCALER          15
 #define LED_MIN_SCALER          1
 // # of ms between each change in LED
