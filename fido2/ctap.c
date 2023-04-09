@@ -141,31 +141,6 @@ uint8_t verify_pin_auth(uint8_t * pinAuth, uint8_t * clientDataHash)
     return verify_pin_auth_ex(pinAuth, clientDataHash, CLIENT_DATA_HASH_SIZE);
 }
 
-uint8_t handle_cbor_array_container(CborEncoder *encoder, CborEncoder *arrayEncoder)
-{
-    int ret;
-    /// RESP_versions are added to the CBOR stream
-    ret = cbor_encode_uint(encoder, RESP_versions);     //  versions key
-    check_ret(ret);
-    {
-        /// CBOR array is created in the CBOR stream
-        /// and then the 3 string items "U2F_V2", "FIDO_2_0" and "FIDO_2_1_PRE" are added
-        ret = cbor_encoder_create_array(encoder, arrayEncoder, 3);
-        check_ret(ret);
-        {
-            ret = cbor_encode_text_stringz(arrayEncoder, "U2F_V2");
-            check_ret(ret);
-            ret = cbor_encode_text_stringz(arrayEncoder, "FIDO_2_0");
-            check_ret(ret);
-            ret = cbor_encode_text_stringz(arrayEncoder, "FIDO_2_1_PRE");
-            check_ret(ret);
-        }
-        ret = cbor_encoder_close_container(encoder, arrayEncoder);
-        check_ret(ret);
-    }
-    return CTAP1_ERR_SUCCESS;
-}
-
 uint8_t ctap_get_info(CborEncoder * encoder)
 {
     printf1(TAG_GREEN, "ctap_get_info() called\n");
@@ -183,9 +158,7 @@ uint8_t ctap_get_info(CborEncoder * encoder)
     ret = cbor_encoder_create_map(encoder, &map, 8);
     check_ret(ret);
     {
-        ret = handle_cbor_array_container(&map, &array);
-        check_ret(ret);
-        /*/// RESP_versions are added to the CBOR stream
+        /// RESP_versions are added to the CBOR stream
         ret = cbor_encode_uint(&map, RESP_versions);     //  versions key
         check_ret(ret);
         {
@@ -203,7 +176,7 @@ uint8_t ctap_get_info(CborEncoder * encoder)
             }
             ret = cbor_encoder_close_container(&map, &array);
             check_ret(ret);
-        }*/
+        }
 
         ret = cbor_encode_uint(&map, RESP_extensions);
         check_ret(ret);
@@ -279,9 +252,6 @@ uint8_t ctap_get_info(CborEncoder * encoder)
                     check_ret(ret);
                 }
 
-
-
-
             }
             ret = cbor_encoder_close_container(&map, &options);
             check_ret(ret);
@@ -306,7 +276,6 @@ uint8_t ctap_get_info(CborEncoder * encoder)
             ret = cbor_encoder_close_container(&map, &pins);
             check_ret(ret);
         }
-
 
         ret = cbor_encode_uint(&map, 0x07); //maxCredentialCountInList
         check_ret(ret);
