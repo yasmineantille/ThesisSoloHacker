@@ -42,6 +42,7 @@ struct _getAssertionState getAssertionState;
 // Mask = hmac(device-secret, 14-random-bytes-in-credential-id)
 // Masked_output = Mask ^ metadata
 static void add_masked_metadata_for_credential(CredentialId * credential, uint32_t metadata){
+    printf1(TAG_GREEN, "add_masked_metadata_for_credential() called\n");
     uint8_t mask[32];
     crypto_sha256_hmac_init(CRYPTO_TRANSPORT_KEY, 0, mask);
     crypto_sha256_update(credential->entropy.nonce, CREDENTIAL_NONCE_SIZE - 4);
@@ -51,6 +52,8 @@ static void add_masked_metadata_for_credential(CredentialId * credential, uint32
 }
 
 static uint32_t read_metadata_from_masked_credential(CredentialId * credential){
+    printf1(TAG_GREEN, "read_metadata_from_masked_credential() called\n");
+
     uint8_t mask[32];
     crypto_sha256_hmac_init(CRYPTO_TRANSPORT_KEY, 0, mask);
     crypto_sha256_update(credential->entropy.nonce, CREDENTIAL_NONCE_SIZE - 4);
@@ -61,11 +64,15 @@ static uint32_t read_metadata_from_masked_credential(CredentialId * credential){
 
 static uint32_t read_cred_protect_from_masked_credential(CredentialId * credential)
 {
+    printf1(TAG_GREEN, "read_cred_protect_from_masked_credential() called\n");
+
     return read_metadata_from_masked_credential(credential) & 0xffffU;
 }
 
 static int32_t read_cose_alg_from_masked_credential(CredentialId * credential)
 {
+    printf1(TAG_GREEN, "read_cose_alg_from_masked_credential() called\n");
+
     uint8_t  alg = (read_metadata_from_masked_credential(credential) >> 16) & 0xffU;
 
     switch (alg)
@@ -80,6 +87,8 @@ static int32_t read_cose_alg_from_masked_credential(CredentialId * credential)
 
 static uint8_t check_credential_metadata(CredentialId * credential, uint8_t is_verified, uint8_t is_from_credid_list)
 {
+    printf1(TAG_GREEN, "check_credential_metadata() called\n");
+
     uint32_t cred_protect = read_cred_protect_from_masked_credential(credential);
 
     switch (cred_protect){
@@ -104,6 +113,8 @@ static uint8_t check_credential_metadata(CredentialId * credential, uint8_t is_v
 
 static uint8_t verify_pin_auth_ex(uint8_t * pinAuth, uint8_t *buf, size_t len)
 {
+    printf1(TAG_GREEN, "verify_pin_auth_ex() called\n");
+
     uint8_t hmac[32];
 
     crypto_sha256_hmac_init(PIN_TOKEN, PIN_TOKEN_SIZE, hmac);
@@ -125,11 +136,40 @@ static uint8_t verify_pin_auth_ex(uint8_t * pinAuth, uint8_t *buf, size_t len)
 
 uint8_t verify_pin_auth(uint8_t * pinAuth, uint8_t * clientDataHash)
 {
+    printf1(TAG_GREEN, "verify_pin_auth() called\n");
+
     return verify_pin_auth_ex(pinAuth, clientDataHash, CLIENT_DATA_HASH_SIZE);
+}
+
+uint8_t handle_cbor_array_container(CborEncoder *encoder, CborEncoder *arrayEncoder)
+{
+    int ret;
+    /// RESP_versions are added to the CBOR stream
+    ret = cbor_encode_uint(encoder, RESP_versions);     //  versions key
+    check_ret(ret);
+    {
+        /// CBOR array is created in the CBOR stream
+        /// and then the 3 string items "U2F_V2", "FIDO_2_0" and "FIDO_2_1_PRE" are added
+        ret = cbor_encoder_create_array(encoder, arrayEncoder, 3);
+        check_ret(ret);
+        {
+            ret = cbor_encode_text_stringz(arrayEncoder, "U2F_V2");
+            check_ret(ret);
+            ret = cbor_encode_text_stringz(arrayEncoder, "FIDO_2_0");
+            check_ret(ret);
+            ret = cbor_encode_text_stringz(arrayEncoder, "FIDO_2_1_PRE");
+            check_ret(ret);
+        }
+        ret = cbor_encoder_close_container(encoder, arrayEncoder);
+        check_ret(ret);
+    }
+    return CTAP1_ERR_SUCCESS;
 }
 
 uint8_t ctap_get_info(CborEncoder * encoder)
 {
+    printf1(TAG_GREEN, "ctap_get_info() called\n");
+
     int ret;
     CborEncoder array;
     CborEncoder map;
@@ -138,13 +178,19 @@ uint8_t ctap_get_info(CborEncoder * encoder)
     uint8_t aaguid[16];
     device_read_aaguid(aaguid);
 
+    // TODO: This part could use some cleanup? -Y
+    // Is there a nicer way of checking ret after each function return? -Y
     ret = cbor_encoder_create_map(encoder, &map, 8);
     check_ret(ret);
     {
-
+        ret = handle_cbor_array_container(&map, &array);
+        check_ret(ret);
+        /*/// RESP_versions are added to the CBOR stream
         ret = cbor_encode_uint(&map, RESP_versions);     //  versions key
         check_ret(ret);
         {
+            /// CBOR array is created in the CBOR stream
+            /// and then the 3 string items "U2F_V2", "FIDO_2_0" and "FIDO_2_1_PRE" are added
             ret = cbor_encoder_create_array(&map, &array, 3);
             check_ret(ret);
             {
@@ -157,7 +203,7 @@ uint8_t ctap_get_info(CborEncoder * encoder)
             }
             ret = cbor_encoder_close_container(&map, &array);
             check_ret(ret);
-        }
+        }*/
 
         ret = cbor_encode_uint(&map, RESP_extensions);
         check_ret(ret);
@@ -287,6 +333,8 @@ uint8_t ctap_get_info(CborEncoder * encoder)
 
 static int ctap_add_cose_key(CborEncoder * cose_key, uint8_t * x, uint8_t * y, uint8_t credtype, int32_t algtype)
 {
+    printf1(TAG_GREEN, "ctap_add_cose_key() called\n");
+
     int ret;
     CborEncoder map;
 
@@ -338,6 +386,8 @@ static int ctap_add_cose_key(CborEncoder * cose_key, uint8_t * x, uint8_t * y, u
 }
 static int ctap_generate_cose_key(CborEncoder * cose_key, uint8_t * hmac_input, int len, uint8_t credtype, int32_t algtype)
 {
+    printf1(TAG_GREEN, "ctap_generate_cose_key() called\n");
+
     uint8_t x[32], y[32];
 
     if (credtype != PUB_KEY_CRED_PUB_KEY)
@@ -368,6 +418,8 @@ static int ctap_generate_cose_key(CborEncoder * cose_key, uint8_t * hmac_input, 
 
 void make_auth_tag(uint8_t * rpIdHash, uint8_t * nonce, uint32_t count, uint8_t * tag)
 {
+    printf1(TAG_GREEN, "make_auth_tag() called\n");
+
     uint8_t hashbuf[32];
     memset(hashbuf,0,sizeof(hashbuf));
     crypto_sha256_hmac_init(CRYPTO_TRANSPORT_KEY, 0, hashbuf);
@@ -381,11 +433,15 @@ void make_auth_tag(uint8_t * rpIdHash, uint8_t * nonce, uint32_t count, uint8_t 
 
 void ctap_flush_state()
 {
+    printf1(TAG_GREEN, "ctap_flush_state() called\n");
+
     authenticator_write_state(&STATE);
 }
 
 static uint32_t auth_data_update_count(CTAP_authDataHeader * authData)
 {
+    printf1(TAG_GREEN, "auth_data_update_count() called\n");
+
     uint32_t count = ctap_atomic_count( 0 );
     if (count == 0)     // count 0 will indicate invalid token
     {
@@ -404,11 +460,15 @@ static uint32_t auth_data_update_count(CTAP_authDataHeader * authData)
 
 static void ctap_increment_rk_store()
 {
+    printf1(TAG_GREEN, "ctap_increment_rk_store() called\n");
+
     STATE.rk_stored++;
     ctap_flush_state();
 }
 static void ctap_decrement_rk_store()
 {
+    printf1(TAG_GREEN, "ctap_decrement_rk_store() called\n");
+
     STATE.rk_stored--;
     ctap_flush_state();
 }
@@ -416,10 +476,14 @@ static void ctap_decrement_rk_store()
 // Return 1 if rk is valid, 0 if not.
 static int ctap_rk_is_valid(CTAP_residentKey * rk)
 {
+    printf1(TAG_GREEN, "ctap_rk_is_valid() called\n");
+
     return (rk->id.count > 0 && rk->id.count != 0xffffffff);
 }
 
 static int load_nth_valid_rk(int n, CTAP_residentKey * rk) {
+
+    printf1(TAG_GREEN, "load_nth_valid_rk() called\n");
 
     int valid_count = 0;
     unsigned int i;
@@ -438,6 +502,8 @@ static int load_nth_valid_rk(int n, CTAP_residentKey * rk) {
 
 static int is_matching_rk(CTAP_residentKey * rk, CTAP_residentKey * rk2)
 {
+    printf1(TAG_GREEN, "is_matching_rk() called\n");
+
     return (memcmp(rk->id.rpIdHash, rk2->id.rpIdHash, 32) == 0) &&
            (memcmp(rk->user.id, rk2->user.id, rk->user.id_size) == 0) &&
            (rk->user.id_size == rk2->user.id_size);
@@ -445,11 +511,15 @@ static int is_matching_rk(CTAP_residentKey * rk, CTAP_residentKey * rk2)
 
 static int is_cred_id_matching_rk(CredentialId * credId, CTAP_residentKey * rk)
 {
+    printf1(TAG_GREEN, "is_cred_id_matching_rk() called\n");
+
     return (memcmp(credId, &rk->id, sizeof(CredentialId)) == 0);
 }
 
 static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf, unsigned int * ext_encoder_buf_size)
 {
+    printf1(TAG_GREEN, "ctap_make_extensions() called\n");
+
     CborEncoder extensions;
     int ret;
     uint8_t extensions_used = 0;
@@ -590,6 +660,8 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
 
 static unsigned int get_credential_id_size(int type)
 {
+    printf1(TAG_GREEN, "get_credential_id_size() called\n");
+
     if (type == PUB_KEY_CRED_CTAP1)
         return U2F_KEY_HANDLE_SIZE;
     if (type == PUB_KEY_CRED_CUSTOM)
@@ -599,6 +671,8 @@ static unsigned int get_credential_id_size(int type)
 
 static int ctap2_user_presence_test()
 {
+    printf1(TAG_GREEN, "ctap2_user_presence_test() called\n");
+
     device_set_status(CTAPHID_STATUS_UPNEEDED);
     int ret = ctap_user_presence_test(CTAP2_UP_DELAY_MS);
     if ( ret > 1 )
@@ -621,6 +695,8 @@ static int ctap2_user_presence_test()
 
 static int ctap_make_auth_data(struct rpId * rp, CborEncoder * map, uint8_t * auth_data_buf, uint32_t * len, CTAP_credInfo * credInfo, CTAP_extensions * extensions)
 {
+    printf1(TAG_GREEN, "ctap_make_auth_data() called\n");
+
     CborEncoder cose_key;
 
     unsigned int auth_data_sz = sizeof(CTAP_authDataHeader);
@@ -735,10 +811,6 @@ done_rk:
 
     }
 
-
-
-
-
     *len = auth_data_sz;
     return 0;
 }
@@ -753,6 +825,8 @@ done_rk:
  */
 int ctap_encode_der_sig(const uint8_t * const in_sigbuf, uint8_t * const out_sigder)
 {
+    printf1(TAG_GREEN, "ctap_encode_der_sig() called\n");
+
     // Need to caress into dumb der format ..
     uint8_t i;
     uint8_t lead_s = 0;  // leading zeros
@@ -812,6 +886,8 @@ int ctap_encode_der_sig(const uint8_t * const in_sigbuf, uint8_t * const out_sig
 // @return length of der signature
 int ctap_calculate_signature(uint8_t * data, int datalen, uint8_t * clientDataHash, uint8_t * hashbuf, uint8_t * sigbuf, uint8_t * sigder, int32_t alg)
 {
+    printf1(TAG_GREEN, "ctap_calculate_signature() called\n");
+
     // calculate attestation sig
     if (alg == COSE_ALG_EDDSA)
     {
@@ -832,6 +908,8 @@ int ctap_calculate_signature(uint8_t * data, int datalen, uint8_t * clientDataHa
 
 uint8_t ctap_add_attest_statement(CborEncoder * map, uint8_t * sigder, int len)
 {
+    printf1(TAG_GREEN, "ctap_add_attest_statement() called\n");
+
     int ret;
     uint8_t cert[1024];
     uint16_t cert_size = device_attestation_cert_der_get_size();
@@ -881,6 +959,8 @@ uint8_t ctap_add_attest_statement(CborEncoder * map, uint8_t * sigder, int len)
 // Return 1 if credential belongs to this token
 int ctap_authenticate_credential(struct rpId * rp, CTAP_credentialDescriptor * desc)
 {
+    printf1(TAG_GREEN, "ctap_authenticate_credential() called\n");
+
     uint8_t rpIdHash[32];
     uint8_t tag[16];
 
@@ -920,6 +1000,8 @@ int ctap_authenticate_credential(struct rpId * rp, CTAP_credentialDescriptor * d
 
 uint8_t ctap_make_credential(CborEncoder * encoder, uint8_t * request, int length)
 {
+    printf1(TAG_GREEN, "ctap_make_credential() called\n");
+
     CTAP_makeCredential MC;
     int ret;
     unsigned int i;
@@ -1058,6 +1140,8 @@ uint8_t ctap_make_credential(CborEncoder * encoder, uint8_t * request, int lengt
 
 static uint8_t ctap_add_credential_descriptor(CborEncoder * map, struct Credential * cred, int type)
 {
+    printf1(TAG_GREEN, "ctap_add_credential_descriptor() called\n");
+
     CborEncoder desc;
 
     int ret = cbor_encoder_create_map(map, &desc, 2);
@@ -1089,6 +1173,8 @@ static uint8_t ctap_add_credential_descriptor(CborEncoder * map, struct Credenti
 
 uint8_t ctap_add_user_entity(CborEncoder * map, CTAP_userEntity * user, int is_verified)
 {
+    printf1(TAG_GREEN, "ctap_add_user_entity() called\n");
+
     CborEncoder entity;
     int dispname = (user->name[0] != 0) && is_verified;
     int ret;
@@ -1139,6 +1225,8 @@ uint8_t ctap_add_user_entity(CborEncoder * map, CTAP_userEntity * user, int is_v
 
 static int cred_cmp_func(const void * _a, const void * _b)
 {
+    printf1(TAG_GREEN, "cred_cmp_func() called\n");
+
     CTAP_credentialDescriptor * a = (CTAP_credentialDescriptor * )_a;
     CTAP_credentialDescriptor * b = (CTAP_credentialDescriptor * )_b;
     return b->credential.id.count - a->credential.id.count;
@@ -1147,6 +1235,8 @@ static int cred_cmp_func(const void * _a, const void * _b)
 // Return 1 if existing info found, 0 otherwise
 static int add_existing_user_info(CTAP_credentialDescriptor * cred)
 {
+    printf1(TAG_GREEN, "add_existing_user_info() called\n");
+
     CTAP_residentKey rk;
     int index = STATE.rk_stored;
     int i;
@@ -1169,6 +1259,8 @@ static int add_existing_user_info(CTAP_credentialDescriptor * cred)
 // sorts the credentials.  Most recent creds will be first, invalid ones last.
 int ctap_filter_invalid_credentials(CTAP_getAssertion * GA)
 {
+    printf1(TAG_GREEN, "ctap_filter_invalid_credentials() called\n");
+
     unsigned int i;
     int count = 0;
     uint8_t rpIdHash[32];
@@ -1270,6 +1362,8 @@ static int8_t save_credential_list( uint8_t * clientDataHash,
                                     uint32_t count,
                                     CTAP_extensions * extensions)
 {
+    printf1(TAG_GREEN, "save_credential_list() called\n");
+
     if(count)
     {
         if (count > ALLOW_LIST_MAX_SIZE-1)
@@ -1291,6 +1385,8 @@ static int8_t save_credential_list( uint8_t * clientDataHash,
 
 static CTAP_credentialDescriptor * pop_credential()
 {
+    printf1(TAG_GREEN, "pop_credential() called\n");
+
     if (getAssertionState.count > 0 && getAssertionState.index < getAssertionState.count)
     {
         return &getAssertionState.creds[getAssertionState.index++];
@@ -1304,6 +1400,8 @@ static CTAP_credentialDescriptor * pop_credential()
 // adds 2 to map, or 3 if add_user is true
 uint8_t ctap_end_get_assertion(CborEncoder * map, CTAP_credentialDescriptor * cred, uint8_t * auth_data_buf, unsigned int auth_data_buf_sz, uint8_t * clientDataHash)
 {
+    printf1(TAG_GREEN, "ctap_end_get_assertion() called\n");
+
     int ret;
     uint8_t sigbuf[64];
     uint8_t sigder[72];
@@ -1370,6 +1468,8 @@ uint8_t ctap_end_get_assertion(CborEncoder * map, CTAP_credentialDescriptor * cr
 
 uint8_t ctap_get_next_assertion(CborEncoder * encoder)
 {
+    printf1(TAG_CTAP, "ctap_get_next_assertion() called\n");
+
     int ret;
     CborEncoder map;
 
@@ -1431,6 +1531,8 @@ uint8_t ctap_get_next_assertion(CborEncoder * encoder)
 
 uint8_t ctap_cred_metadata(CborEncoder * encoder)
 {
+    printf1(TAG_CTAP, "ctap_cred_metadata() called\n");
+
     CborEncoder map;
     int ret = cbor_encoder_create_map(encoder, &map, 2);
     check_ret(ret);
@@ -1450,6 +1552,8 @@ uint8_t ctap_cred_metadata(CborEncoder * encoder)
 
 uint8_t ctap_cred_rp(CborEncoder * encoder, int rk_ind, int rp_count)
 {
+    printf1(TAG_CTAP, "ctap_cred_rp() called\n");
+
     CTAP_residentKey rk;
     ctap_load_rk(rk_ind, &rk);
 
@@ -1499,6 +1603,8 @@ uint8_t ctap_cred_rp(CborEncoder * encoder, int rk_ind, int rp_count)
 
 uint8_t ctap_cred_rk(CborEncoder * encoder, int rk_ind, int rk_count)
 {
+    printf1(TAG_CTAP, "ctap_cred_rk() called\n");
+
     CTAP_residentKey rk;
     ctap_load_rk(rk_ind, &rk);
 
@@ -1556,6 +1662,8 @@ uint8_t ctap_cred_rk(CborEncoder * encoder, int rk_ind, int rk_count)
 
 uint8_t ctap_cred_mgmt_pinauth(CTAP_credMgmt *CM)
 {
+    printf1(TAG_CTAP, "ctap_cred_mgmt_pinauth() called\n");
+
     if (CM->cmd != CM_cmdMetadata &&
         CM->cmd != CM_cmdRPBegin &&
         CM->cmd != CM_cmdRKBegin &&
@@ -1585,6 +1693,8 @@ uint8_t ctap_cred_mgmt_pinauth(CTAP_credMgmt *CM)
 }
 
 static int credentialId_to_rk_index(CredentialId * credId){
+    printf1(TAG_CTAP, "credentialId_to_rk_index() called\n");
+
     unsigned int i;
     CTAP_residentKey rk;
 
@@ -1604,6 +1714,8 @@ static int credentialId_to_rk_index(CredentialId * credId){
 
 // Load the next valid resident key of a different rpIdHash
 static int scan_for_next_rp(int index){
+    printf1(TAG_CTAP, "scan_for_next_rp() called\n");
+
     CTAP_residentKey rk;
     uint8_t nextRpIdHash[32];
 
@@ -1659,6 +1771,8 @@ static int scan_for_next_rp(int index){
 
 // Load the next valid resident key of the same rpIdHash
 static int scan_for_next_rk(int index, uint8_t * initialRpIdHash){
+    printf1(TAG_CTAP, "scan_for_next_rk() called\n");
+
     CTAP_residentKey rk;
     uint8_t lastRpIdHash[32];
 
@@ -1690,6 +1804,8 @@ static int scan_for_next_rk(int index, uint8_t * initialRpIdHash){
 
 uint8_t ctap_cred_mgmt(CborEncoder * encoder, uint8_t * request, int length)
 {
+    printf1(TAG_CTAP, "ctap_cred_mgmt() called\n");
+
     CTAP_credMgmt CM;
     int i = 0;
 
@@ -1817,6 +1933,8 @@ uint8_t ctap_cred_mgmt(CborEncoder * encoder, uint8_t * request, int length)
 
 uint8_t ctap_get_assertion(CborEncoder * encoder, uint8_t * request, int length)
 {
+    printf1(TAG_CTAP, "ctap_get_assertion() called\n");
+
     CTAP_getAssertion GA;
 
     int ret = ctap_parse_get_assertion(&GA,request,length);
@@ -1960,6 +2078,8 @@ uint8_t ctap_get_assertion(CborEncoder * encoder, uint8_t * request, int length)
 // Return how many trailing zeros in a buffer
 static int trailing_zeros(uint8_t * buf, int indx)
 {
+    printf1(TAG_CTAP, "trailing_zeros() called\n");
+
     int c = 0;
     while(0==buf[indx] && indx)
     {
@@ -1971,6 +2091,8 @@ static int trailing_zeros(uint8_t * buf, int indx)
 
 uint8_t ctap_update_pin_if_verified(uint8_t * pinEnc, int len, uint8_t * platform_pubkey, uint8_t * pinAuth, uint8_t * pinHashEnc)
 {
+    printf1(TAG_CTAP, "ctap_update_pin_if_verified() called\n");
+
     uint8_t shared_secret[32];
     uint8_t hmac[32];
     int ret;
@@ -2088,6 +2210,8 @@ uint8_t ctap_update_pin_if_verified(uint8_t * pinEnc, int len, uint8_t * platfor
 
 uint8_t ctap_add_pin_if_verified(uint8_t * pinTokenEnc, uint8_t * platform_pubkey, uint8_t * pinHashEnc)
 {
+    printf1(TAG_CTAP, "ctap_add_pin_if_verified() called\n");
+
     uint8_t shared_secret[32];
 
     crypto_ecc256_shared_secret(platform_pubkey, KEY_AGREEMENT_PRIV, shared_secret);
@@ -2134,6 +2258,8 @@ uint8_t ctap_add_pin_if_verified(uint8_t * pinTokenEnc, uint8_t * platform_pubke
 
 uint8_t ctap_client_pin(CborEncoder * encoder, uint8_t * request, int length)
 {
+    printf1(TAG_CTAP, "ctap_client_pin() called\n");
+
     CTAP_clientPin CP;
     CborEncoder map;
     uint8_t pinTokenEnc[PIN_TOKEN_SIZE];
@@ -2179,6 +2305,7 @@ uint8_t ctap_client_pin(CborEncoder * encoder, uint8_t * request, int length)
 
             break;
         case CP_cmdGetKeyAgreement:
+            // Here public key is computed
             printf1(TAG_CP,"CP_cmdGetKeyAgreement\n");
             num_map++;
             ret = cbor_encoder_create_map(encoder, &map, num_map);
@@ -2279,6 +2406,8 @@ uint8_t ctap_client_pin(CborEncoder * encoder, uint8_t * request, int length)
 
 void ctap_response_init(CTAP_RESPONSE * resp)
 {
+    printf1(TAG_CTAP, "ctap_response_init() called\n");
+
     memset(resp, 0, sizeof(CTAP_RESPONSE));
     resp->data_size = CTAP_RESPONSE_BUFFER_SIZE;
 }
@@ -2286,12 +2415,14 @@ void ctap_response_init(CTAP_RESPONSE * resp)
 
 uint8_t ctap_request(uint8_t * pkt_raw, int length, CTAP_RESPONSE * resp)
 {
+    printf1(TAG_CTAP, "ctap_request() called\n");
+
     CborEncoder encoder;
     memset(&encoder,0,sizeof(CborEncoder));
     uint8_t status = 0;
     uint8_t cmd = *pkt_raw;
-    pkt_raw++;
-    length--;
+    pkt_raw++;  // TODO: Why? -Y
+    length--;   // TODO: Why? -Y
 
     uint8_t * buf = resp->data;
 
@@ -2346,12 +2477,13 @@ uint8_t ctap_request(uint8_t * pkt_raw, int length, CTAP_RESPONSE * resp)
             printf1(TAG_CTAP,"CTAP_CANCEL\n");
             break;
         case CTAP_GET_INFO:
+            // entry point in ctap communication
             printf1(TAG_CTAP,"CTAP_GET_INFO\n");
             status = ctap_get_info(&encoder);
 
             resp->length = cbor_encoder_get_buffer_size(&encoder, buf);
 
-            dump_hex1(TAG_DUMP, buf, resp->length);
+            dump_hex1(TAG_DUMP, buf, resp->length); // TODO: What does this do? -Y
 
             break;
         case CTAP_CLIENT_PIN:
@@ -2419,6 +2551,8 @@ done:
 
 static void ctap_state_init()
 {
+    printf1(TAG_CTAP, "ctap_state_init() called\n");
+
     // Set to 0xff instead of 0x00 to be easier on flash
     memset(&STATE, 0xff, sizeof(AuthenticatorState));
     // Fresh RNG for key
@@ -2447,6 +2581,8 @@ static void ctap_state_init()
  * This function should only be called from a privilege mode.
 */
 void ctap_load_external_keys(uint8_t * keybytes){
+    printf1(TAG_CTAP, "ctap_load_external_keys() called\n");
+
     memmove(STATE.key_space, keybytes, KEY_SPACE_BYTES);
     authenticator_write_state(&STATE);
     crypto_load_master_secret(STATE.key_space);
@@ -2455,6 +2591,8 @@ void ctap_load_external_keys(uint8_t * keybytes){
 #include "version.h"
 void ctap_init()
 {
+    printf1(TAG_CTAP, "ctap_init() called\n");
+
     printf1(TAG_ERR,"Current firmware version address: %p\r\n", &firmware_version);
     printf1(TAG_ERR,"Current firmware version: %d.%d.%d.%d (%02x.%02x.%02x.%02x)\r\n",
             firmware_version.major, firmware_version.minor, firmware_version.patch, firmware_version.reserved,
@@ -2510,6 +2648,8 @@ void ctap_init()
 
 uint8_t ctap_is_pin_set()
 {
+    printf1(TAG_CTAP, "ctap_is_pin_set() called\n");
+
     return STATE.is_pin_set == 1;
 }
 
@@ -2521,6 +2661,8 @@ uint8_t ctap_is_pin_set()
  */
 void ctap_update_pin(uint8_t * pin, int len)
 {
+    printf1(TAG_CTAP, "ctap_update_pin() called\n");
+
     if (len >= NEW_PIN_ENC_MIN_SIZE || len < 4)
     {
         printf2(TAG_ERR, "Update pin fail length\n");
@@ -2548,6 +2690,8 @@ void ctap_update_pin(uint8_t * pin, int len)
 
 uint8_t ctap_decrement_pin_attempts()
 {
+    printf1(TAG_CTAP, "ctap_decrement_pin_attempts() called\n");
+
     if (PIN_BOOT_ATTEMPTS_LEFT > 0)
     {
         PIN_BOOT_ATTEMPTS_LEFT--;
@@ -2573,21 +2717,29 @@ uint8_t ctap_decrement_pin_attempts()
 
 int8_t ctap_device_locked()
 {
+    printf1(TAG_CTAP, "ctap_device_locked() called\n");
+
     return STATE.remaining_tries <= 0;
 }
 
 int8_t ctap_device_boot_locked()
 {
+    printf1(TAG_CTAP, "ctap_device_boot_locked() called\n");
+
     return PIN_BOOT_ATTEMPTS_LEFT <= 0;
 }
 
 int8_t ctap_leftover_pin_attempts()
 {
+    printf1(TAG_CTAP, "ctap_leftover_pin_attempts() called\n");
+
     return STATE.remaining_tries;
 }
 
 void ctap_reset_pin_attempts()
 {
+    printf1(TAG_CTAP, "ctap_reset_pin_attempts() called\n");
+
     STATE.remaining_tries = PIN_LOCKOUT_ATTEMPTS;
     PIN_BOOT_ATTEMPTS_LEFT = PIN_BOOT_ATTEMPTS;
     ctap_flush_state();
@@ -2595,11 +2747,15 @@ void ctap_reset_pin_attempts()
 
 void ctap_reset_state()
 {
+    printf1(TAG_CTAP, "ctap_reset_state() called\n");
+
     memset(&getAssertionState, 0, sizeof(getAssertionState));
 }
 
 uint16_t ctap_keys_stored()
 {
+    printf1(TAG_CTAP, "ctap_keys_stored() called\n");
+
     int total = 0;
     int i;
     for (i = 0; i < MAX_KEYS; i++)
@@ -2618,6 +2774,8 @@ uint16_t ctap_keys_stored()
 
 static uint16_t key_addr_offset(int index)
 {
+    printf1(TAG_CTAP, "key_addr_offset() called\n");
+
     uint16_t offset = 0;
     int i;
     for (i = 0; i < index; i++)
@@ -2629,6 +2787,8 @@ static uint16_t key_addr_offset(int index)
 
 uint16_t ctap_key_len(uint8_t index)
 {
+    printf1(TAG_CTAP, "ctap_key_len() called\n");
+
     int i = ctap_keys_stored();
     if (index >= i || index >= MAX_KEYS)
     {
@@ -2641,6 +2801,8 @@ uint16_t ctap_key_len(uint8_t index)
 
 int8_t ctap_store_key(uint8_t index, uint8_t * key, uint16_t len)
 {
+    printf1(TAG_CTAP, "ctap_store_key() called\n");
+
     int i = ctap_keys_stored();
     uint16_t offset;
     if (i >= MAX_KEYS || index >= MAX_KEYS || !len)
@@ -2671,6 +2833,8 @@ int8_t ctap_store_key(uint8_t index, uint8_t * key, uint16_t len)
 
 int8_t ctap_load_key(uint8_t index, uint8_t * key)
 {
+    printf1(TAG_CTAP, "ctap_load_key() called\n");
+
     int i = ctap_keys_stored();
     uint16_t offset;
     uint16_t len;
@@ -2699,11 +2863,15 @@ int8_t ctap_load_key(uint8_t index, uint8_t * key)
 
 static void ctap_reset_key_agreement()
 {
+    printf1(TAG_CTAP, "ctap_reset_key_agreement() called\n");
+
     ctap_generate_rng(KEY_AGREEMENT_PRIV, sizeof(KEY_AGREEMENT_PRIV));
 }
 
 void ctap_reset()
 {
+    printf1(TAG_CTAP, "ctap_reset() called\n");
+
     ctap_state_init();
 
     authenticator_write_state(&STATE);
@@ -2721,6 +2889,8 @@ void ctap_reset()
 }
 
 void lock_device_permanently() {
+    printf1(TAG_GREEN, "lock_device_permanently() called\n");
+
     memset(PIN_TOKEN, 0, sizeof(PIN_TOKEN));
     memset(STATE.PIN_CODE_HASH, 0, sizeof(STATE.PIN_CODE_HASH));
 
