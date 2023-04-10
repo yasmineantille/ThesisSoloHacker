@@ -427,6 +427,7 @@ void device_wink(void)
 
 void heartbeat(void)
 {
+    // printf1(TAG_GREEN, "Heartbeat called in device.c");
     static int state = 0;
     static uint32_t val = (LED_MAX_SCALER - LED_MIN_SCALER)/2;
     uint8_t r = (LED_INIT_VALUE >> 16) & 0xff;
@@ -668,6 +669,7 @@ static int handle_packets(void)
 
 static int wait_for_button_activate(uint32_t wait)
 {
+    printf("wait_for_button_activate() called in device.c");
     int ret;
     uint32_t start = millis();
     do

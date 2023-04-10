@@ -7,7 +7,7 @@
 #ifndef _CTAP_PARSE_H
 #define _CTAP_PARSE_H
 
-
+// pre-processor directives
 #define check_ret(r)    _check_ret(r,__LINE__, __FILE__);\
                         if ((r) != CborNoError) return CTAP2_ERR_CBOR_PARSING;
 
@@ -15,6 +15,12 @@
                         if ((r) != CborNoError) return r;
 
 
+// Leading underscores usually indicate one of 3 things:
+//  1. The definition is not part of the C standard, so it's not portable
+//  2. The definition is internal to a library or compiler, and should not be used from outside
+//  3. The definition should not be used lightly, as it implies some risk or necessary configuration that requires extra knowledge.
+//
+//  I am assuming here it's number 2)
 extern void _check_ret(CborError ret, int line, const char * filename);
 
 

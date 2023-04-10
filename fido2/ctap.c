@@ -181,13 +181,18 @@ uint8_t ctap_get_info(CborEncoder * encoder)
         ret = cbor_encode_uint(&map, RESP_extensions);
         check_ret(ret);
         {
-            ret = cbor_encoder_create_array(&map, &array, 2);
+            /// important, change array size for correct number of elements
+            ret = cbor_encoder_create_array(&map, &array, 3);
             check_ret(ret);
             {
                 ret = cbor_encode_text_stringz(&array, "credProtect");
                 check_ret(ret);
 
                 ret = cbor_encode_text_stringz(&array, "hmac-secret");
+                check_ret(ret);
+
+                /// Added extension for ping-pong
+                ret = cbor_encode_text_stringz(&array, "ping-pong");
                 check_ret(ret);
             }
             ret = cbor_encoder_close_container(&map, &array);
@@ -495,6 +500,7 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
     uint8_t hmac_secret_output_is_valid = 0;
     uint8_t hmac_secret_requested_is_valid = 0;
     uint8_t cred_protect_is_valid = 0;
+    uint8_t ping_pong_is_valid = 0;     /// for new extension
     uint8_t hmac_secret_output[64];
     uint8_t shared_secret[32];
     uint8_t hmac[32];
@@ -574,6 +580,14 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
         }
     }
 
+    /// for new extension
+    if(ext->ping_pong_present){
+        printf1(TAG_GREEN, "ping_pong_present");
+
+        extensions_used += 1;
+        ping_pong_is_valid = 1;
+    }
+
     if (extensions_used > 0)
     {
 
@@ -607,6 +621,18 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
                     check_ret(ret);
 
                     ret = cbor_encode_boolean(&extension_output_map, 1);
+                    check_ret(ret);
+                }
+            }
+            /// for new extension
+            if (ping_pong_is_valid) {
+                {
+                    printf1(TAG_GREEN, "ping_pong_is_valid");
+                    ret = cbor_encode_text_stringz(&extension_output_map, "ping-pong");
+                    check_ret(ret);
+
+                    //Set the response message
+                    ret = cbor_encode_text_stringz(&extension_output_map, (const char*)ext->ping_pong_response);
                     check_ret(ret);
                 }
             }
@@ -2183,6 +2209,8 @@ uint8_t ctap_add_pin_if_verified(uint8_t * pinTokenEnc, uint8_t * platform_pubke
 
     uint8_t shared_secret[32];
 
+    // calculate shared secret
+    // TODO: shouldn't shared_secret here be a pointer? -Y
     crypto_ecc256_shared_secret(platform_pubkey, KEY_AGREEMENT_PRIV, shared_secret);
 
     crypto_sha256_init();
@@ -2274,7 +2302,7 @@ uint8_t ctap_client_pin(CborEncoder * encoder, uint8_t * request, int length)
 
             break;
         case CP_cmdGetKeyAgreement:
-            // Here public key is computed
+            /// Here public key is computed
             printf1(TAG_CP,"CP_cmdGetKeyAgreement\n");
             num_map++;
             ret = cbor_encoder_create_map(encoder, &map, num_map);

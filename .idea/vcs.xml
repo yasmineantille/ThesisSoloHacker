@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="VcsDirectoryMappings">
+    <mapping directory="" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/crypto/cifra" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/crypto/micro-ecc" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/crypto/salty" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/crypto/salty/c-api/libopencm3" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/crypto/tiny-AES-c" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/tinycbor" vcs="Git" />
+  </component>
+</project>

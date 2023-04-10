@@ -68,25 +68,35 @@ static uint8_t transport_secret[32];
 
 void crypto_sha256_init(void)
 {
+    printf1(TAG_GREEN, "crypto_sha256_init() called\n");
+
     sha256_init(&sha256_ctx);
 }
 
 void crypto_sha512_init(void)
 {
+    printf1(TAG_GREEN, "crypto_sha512_init() called\n");
+
     cf_sha512_init(&sha512_ctx);
 }
 
 void crypto_load_master_secret(uint8_t * key)
 {
+    printf1(TAG_GREEN, "crypto_load_master_secret() called\n");
+
 #if KEY_SPACE_BYTES < 96
 #error "need more key bytes"
 #endif
     memmove(master_secret, key, 64);
     memmove(transport_secret, key+64, 32);
+
+    printf1(TAG_GREEN, "load master secret with key %s \n", key);
 }
 
 void crypto_reset_master_secret(void)
 {
+    printf1(TAG_GREEN, "crypto_reset_master_secret() called\n");
+
     memset(master_secret, 0, 64);
     memset(transport_secret, 0, 32);
     ctap_generate_rng(master_secret, 64);
@@ -96,6 +106,8 @@ void crypto_reset_master_secret(void)
 
 void crypto_sha256_update(uint8_t * data, size_t len)
 {
+    printf1(TAG_GREEN, "crypto_sha256_update() called\n");
+
     sha256_update(&sha256_ctx, data, len);
 }
 
@@ -110,6 +122,8 @@ void crypto_sha256_update_secret()
 
 void crypto_sha256_final(uint8_t * hash)
 {
+    printf1(TAG_GREEN, "crypto_sha256_final() called\n");
+
     sha256_final(&sha256_ctx, hash);
 }
 
@@ -121,6 +135,9 @@ void crypto_sha512_final(uint8_t * hash)
 
 void crypto_sha256_hmac_init(uint8_t * key, uint32_t klen, uint8_t * hmac)
 {
+    printf1(TAG_GREEN, "crypto_sha256_hmac_init() called\n");
+
+    printf1(TAG_CTAP, "hmac init called\n");
     uint8_t buf[64];
     unsigned int i;
     memset(buf, 0, sizeof(buf));
@@ -155,6 +172,8 @@ void crypto_sha256_hmac_init(uint8_t * key, uint32_t klen, uint8_t * hmac)
 
 void crypto_sha256_hmac_final(uint8_t * key, uint32_t klen, uint8_t * hmac)
 {
+    printf1(TAG_GREEN, "crypto_sha256_hmac_final() called\n");
+
     uint8_t buf[64];
     unsigned int i;
     crypto_sha256_final(hmac);
@@ -192,19 +211,27 @@ void crypto_sha256_hmac_final(uint8_t * key, uint32_t klen, uint8_t * hmac)
 
 void crypto_ecc256_init(void)
 {
+    printf1(TAG_GREEN, "crypto_ecc256_init() called\n");
+
     uECC_set_rng((uECC_RNG_Function)ctap_generate_rng);
     _es256_curve = uECC_secp256r1();
+    printf1(TAG_CTAP, "ecc256 init called\n");
 }
 
 
 void crypto_ecc256_load_attestation_key(void)
 {
+    printf1(TAG_GREEN, "crypto_ecc256_load_attestation_key() called\n");
+
     _signing_key = device_get_attestation_key();
     _key_len = 32;
+    printf1(TAG_CTAP, "ecc256 loaded attestation key");
 }
 
 void crypto_ecc256_sign(uint8_t * data, int len, uint8_t * sig)
 {
+    printf1(TAG_GREEN, "crypto_ecc256_sign() called\n");
+
     if ( uECC_sign(_signing_key, data, len, sig, _es256_curve) == 0)
     {
         printf2(TAG_ERR, "error, uECC failed\n");
@@ -214,14 +241,18 @@ void crypto_ecc256_sign(uint8_t * data, int len, uint8_t * sig)
 
 void crypto_ecc256_load_key(uint8_t * data, int len, uint8_t * data2, int len2)
 {
+    printf1(TAG_GREEN, "crypto_ecc256_load_key() called\n");
+
     static uint8_t privkey[32];
     generate_private_key(data,len,data2,len2,privkey);
     _signing_key = privkey;
     _key_len = 32;
+    printf1(TAG_CTAP, "signing key loaded: %s", privkey);
 }
 
 void crypto_ecdsa_sign(uint8_t * data, int len, uint8_t * sig, int MBEDTLS_ECP_ID)
 {
+    printf1(TAG_GREEN, "crypto_ecdsa_sign() called\n");
 
     const struct uECC_Curve_t * curve = NULL;
 
@@ -263,6 +294,8 @@ fail:
 
 void generate_private_key(uint8_t * data, int len, uint8_t * data2, int len2, uint8_t * privkey)
 {
+    printf1(TAG_GREEN, "generate_private_key() called\n");
+
     crypto_sha256_hmac_init(CRYPTO_MASTER_KEY, 0, privkey);
     crypto_sha256_update(data, len);
     crypto_sha256_update(data2, len2);
@@ -277,6 +310,8 @@ void generate_private_key(uint8_t * data, int len, uint8_t * data2, int len2, ui
 /*int uECC_compute_public_key(const uint8_t *private_key, uint8_t *public_key, uECC_Curve curve);*/
 void crypto_ecc256_derive_public_key(uint8_t * data, int len, uint8_t * x, uint8_t * y)
 {
+    printf1(TAG_GREEN, "crypto_ecc256_derive_public_key() called\n");
+
     uint8_t privkey[32];
     uint8_t pubkey[64];
 
@@ -289,12 +324,16 @@ void crypto_ecc256_derive_public_key(uint8_t * data, int len, uint8_t * x, uint8
 }
 void crypto_ecc256_compute_public_key(uint8_t * privkey, uint8_t * pubkey)
 {
+    printf1(TAG_GREEN, "crypto_ecc256_compute_public_key() called\n");
+
     uECC_compute_public_key(privkey, pubkey, _es256_curve);
 }
 
 
 void crypto_load_external_key(uint8_t * key, int len)
 {
+    printf1(TAG_GREEN, "crypto_load_external_key() called\n");
+
     _signing_key = key;
     _key_len = len;
 }
@@ -311,6 +350,8 @@ void crypto_ecc256_make_key_pair(uint8_t * pubkey, uint8_t * privkey)
 
 void crypto_ecc256_shared_secret(const uint8_t * pubkey, const uint8_t * privkey, uint8_t * shared_secret)
 {
+    printf1(TAG_GREEN, "crypto_ecc256_shared_secret() called\n");
+
     if (uECC_shared_secret(pubkey, privkey, shared_secret, _es256_curve) != 1)
     {
         printf2(TAG_ERR, "Error, uECC_shared_secret failed\n");
@@ -322,6 +363,8 @@ void crypto_ecc256_shared_secret(const uint8_t * pubkey, const uint8_t * privkey
 struct AES_ctx aes_ctx;
 void crypto_aes256_init(uint8_t * key, uint8_t * nonce)
 {
+    printf1(TAG_GREEN, "crypto_aes256_init() called\n");
+
     if (key == CRYPTO_TRANSPORT_KEY)
     {
         AES_init_ctx(&aes_ctx, transport_secret);
@@ -343,6 +386,8 @@ void crypto_aes256_init(uint8_t * key, uint8_t * nonce)
 // prevent round key recomputation
 void crypto_aes256_reset_iv(uint8_t * nonce)
 {
+    printf1(TAG_GREEN, "crypto_aes256_reset_iv() called\n");
+
     if (nonce == NULL)
     {
         memset(aes_ctx.Iv, 0, 16);
@@ -355,16 +400,22 @@ void crypto_aes256_reset_iv(uint8_t * nonce)
 
 void crypto_aes256_decrypt(uint8_t * buf, int length)
 {
+    printf1(TAG_GREEN, "crypto_aes256_decrypt() called\n");
+
     AES_CBC_decrypt_buffer(&aes_ctx, buf, length);
 }
 
 void crypto_aes256_encrypt(uint8_t * buf, int length)
 {
+    printf1(TAG_GREEN, "crypto_aes256_encrypt() called\n");
+
     AES_CBC_encrypt_buffer(&aes_ctx, buf, length);
 }
 
 void crypto_ed25519_derive_public_key(uint8_t * data, int len, uint8_t * x)
 {
+    printf1(TAG_GREEN, "crypto_ed25519_derive_public_key() called\n");
+
 #if defined(STM32L432xx)
 
     uint8_t seed[salty_SECRETKEY_SEED_LENGTH];
@@ -385,6 +436,8 @@ void crypto_ed25519_derive_public_key(uint8_t * data, int len, uint8_t * x)
 
 void crypto_ed25519_load_key(uint8_t * data, int len)
 {
+    printf1(TAG_GREEN, "crypto_ed25519_load_key() called\n");
+
 #if defined(STM32L432xx)
 
     static uint8_t seed[salty_SECRETKEY_SEED_LENGTH];
@@ -411,6 +464,8 @@ void crypto_ed25519_load_key(uint8_t * data, int len)
 
 void crypto_ed25519_sign(uint8_t * data1, int len1, uint8_t * data2, int len2, uint8_t * sig)
 {
+    printf1(TAG_GREEN, "crypto_ed25519_sign() called\n");
+
     // ed25519 signature APIs need the message at once (by design!) and in one
     // contiguous buffer (could be changed).
 

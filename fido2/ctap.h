@@ -9,6 +9,7 @@
 
 #include "cbor.h"
 
+// CTAP commands:
 #define CTAP_MAKE_CREDENTIAL        0x01
 #define CTAP_GET_ASSERTION          0x02
 #define CTAP_CANCEL                 0x03
@@ -161,6 +162,8 @@ typedef struct
     uint8_t displayName[DISPLAY_NAME_LIMIT];
     uint8_t icon[ICON_LIMIT];
 }__attribute__((packed)) CTAP_userEntity;
+// the packed attribute specifies that each member (other than zero-width bitfields)
+// of the structure or union is placed to minimize the memory required
 
 typedef struct {
     uint8_t tag[CREDENTIAL_TAG_SIZE];
@@ -179,6 +182,7 @@ struct  __attribute__((packed)) Credential {
     CredentialId id;
     CTAP_userEntity user;
 };
+
 typedef struct {
     CredentialId id;
     CTAP_userEntity user;
@@ -249,11 +253,15 @@ typedef struct
     struct Credential * credential;
 } CTAP_hmac_secret;
 
+/// added extension for ping pong
 typedef struct
 {
     uint8_t hmac_secret_present;
     CTAP_hmac_secret hmac_secret;
     uint32_t cred_protect;
+
+    uint8_t ping_pong_present;
+    char  ping_pong_response[4];
 } CTAP_extensions;
 
 typedef struct

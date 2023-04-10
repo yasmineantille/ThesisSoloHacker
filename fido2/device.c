@@ -61,10 +61,14 @@ static uint8_t _attestation_cert_der[] =
 
 
 __attribute__((weak)) void device_attestation_read_cert_der(uint8_t * dst){
+    printf1(TAG_GREEN, "device_attestation_read_cert_der() called\n");
+
     memmove(dst, _attestation_cert_der, device_attestation_cert_der_get_size());
 }
 
 __attribute__((weak)) uint8_t * device_get_attestation_key(){
+    printf1(TAG_GREEN, "device_get_attestation_key() called\n");
+
     static uint8_t attestation_key[] =
         "\xcd\x67\xaa\x31\x0d\x09\x1e\xd1\x6e\x7e\x98\x92\xaa"
         "\x07\x0e\x19\x94\xfc\xd7\x14\xae\x7c\x40\x8f\xb9\x46"
@@ -73,17 +77,23 @@ __attribute__((weak)) uint8_t * device_get_attestation_key(){
 }
 
 __attribute__((weak)) uint16_t device_attestation_cert_der_get_size(){
+    printf1(TAG_GREEN, "device_attestation_cert_der_get_size() called\n");
+
     return sizeof(_attestation_cert_der)-1;
 }
 
 __attribute__((weak)) void device_reboot()
 {
+    printf1(TAG_GREEN, "device_reboot() called\n");
+
     printf1(TAG_RED, "REBOOT command recieved!\r\n");
     exit(100);
 }
 
 __attribute__((weak)) void device_set_status(uint32_t status)
 {
+    printf1(TAG_GREEN, "device_set_status() called\n");
+
     static uint32_t __device_status = 0;
     if (status != CTAPHID_STATUS_IDLE && __device_status != status)
     {
@@ -105,6 +115,8 @@ __attribute__((weak)) void device_disable_up(bool disable)
 
 __attribute__((weak)) int ctap_user_presence_test(uint32_t d)
 {
+    printf1(TAG_GREEN, "ctap_user_presence_test() called\n");
+
     if (_up_disabled)
     {
         return 2;
@@ -119,6 +131,8 @@ __attribute__((weak)) int ctap_user_verification(uint8_t arg)
 
 __attribute__((weak)) uint32_t ctap_atomic_count(uint32_t amount)
 {
+    printf1(TAG_GREEN, "ctap_atomic_count() called\n");
+
     static uint32_t counter1 = 25;
     counter1 += (amount + 1);
     return counter1;
@@ -127,6 +141,8 @@ __attribute__((weak)) uint32_t ctap_atomic_count(uint32_t amount)
 
 __attribute__((weak)) int ctap_generate_rng(uint8_t * dst, size_t num)
 {
+    printf1(TAG_GREEN, "ctap_generate_rng() called\n");
+
     int i;
     printf1(TAG_ERR, "Insecure RNG being used.\r\n");
     for (i = 0; i < num; i++){
@@ -136,6 +152,8 @@ __attribute__((weak)) int ctap_generate_rng(uint8_t * dst, size_t num)
 
 __attribute__((weak)) int device_is_nfc()
 {
+    printf1(TAG_GREEN, "device_is_nfc() called\n");
+
     return 0;
 }
 
@@ -148,6 +166,8 @@ __attribute__((weak)) void device_set_clock_rate(DEVICE_CLOCK_RATE param){/**/}
 
 static  AuthenticatorState _tmp_state = {0};
 __attribute__((weak)) int authenticator_read_state(AuthenticatorState * s){
+    printf1(TAG_GREEN, "authenticator_read_state() called\n");
+
     if (_tmp_state.is_initialized != INITIALIZED_MARKER){
         return 0;
     }
@@ -158,22 +178,30 @@ __attribute__((weak)) int authenticator_read_state(AuthenticatorState * s){
 }
 
 __attribute__((weak)) void authenticator_write_state(AuthenticatorState * s){
+    printf1(TAG_GREEN, "authenticator_write_state() called\n");
+
     memmove(&_tmp_state, s, sizeof(AuthenticatorState));
 }
 
 __attribute__((weak)) void ctap_reset_rk()
 {
+    printf1(TAG_GREEN, "ctap_reset_rk() called\n");
+
     memset(&RK_STORE,0xff,sizeof(RK_STORE));
 }
 
 __attribute__((weak)) uint32_t ctap_rk_size()
 {
+    printf1(TAG_GREEN, "ctap_rk_size() called\n");
+
     return RK_NUM;
 }
 
 
 __attribute__((weak)) void ctap_store_rk(int index, CTAP_residentKey * rk)
 {
+    printf1(TAG_GREEN, "ctap_store_rk() called\n");
+
     if (index < RK_NUM)
     {
         memmove(RK_STORE.rks + index, rk, sizeof(CTAP_residentKey));
@@ -187,6 +215,8 @@ __attribute__((weak)) void ctap_store_rk(int index, CTAP_residentKey * rk)
 
 __attribute__((weak)) void ctap_delete_rk(int index)
 {
+    printf1(TAG_GREEN, "ctap_delete_rk() called\n");
+
     CTAP_residentKey rk;
     memset(&rk, 0xff, sizeof(CTAP_residentKey));
 
@@ -203,11 +233,15 @@ __attribute__((weak)) void ctap_delete_rk(int index)
 
 __attribute__((weak)) void ctap_load_rk(int index, CTAP_residentKey * rk)
 {
+    printf1(TAG_GREEN, "ctap_load_rk() called\n");
+
     memmove(rk, RK_STORE.rks + index, sizeof(CTAP_residentKey));
 }
 
 __attribute__((weak)) void ctap_overwrite_rk(int index, CTAP_residentKey * rk)
 {
+    printf1(TAG_GREEN, "ctap_overwrite_rk() called\n");
+
     if (index < RK_NUM)
     {
         memmove(RK_STORE.rks + index, rk, sizeof(CTAP_residentKey));
@@ -219,6 +253,8 @@ __attribute__((weak)) void ctap_overwrite_rk(int index, CTAP_residentKey * rk)
 }
 
 __attribute__((weak)) void device_read_aaguid(uint8_t * dst){
+    printf1(TAG_GREEN, "device_read_aaguid() called\n");
+
     uint8_t * aaguid = (uint8_t *)"\x00\x76\x63\x1b\xd4\xa0\x42\x7f\x57\x73\x0e\xc7\x1c\x9e\x02\x79";
     memmove(dst, aaguid, 16);
 }
