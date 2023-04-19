@@ -20,8 +20,6 @@ extern struct _getAssertionState getAssertionState;
 
 void _check_ret(CborError ret, int line, const char * filename)
 {
-    // printf1(TAG_GREEN, "_check_ret() called\n");
-
     if (ret != CborNoError)
     {
         printf1(TAG_ERR,"CborError: 0x%x: %s: %d: %s\n", ret, filename, line, cbor_error_string(ret));
@@ -31,8 +29,6 @@ void _check_ret(CborError ret, int line, const char * filename)
 
 const char * cbor_value_get_type_string(const CborValue *value)
 {
-    printf1(TAG_GREEN, "cbor_value_get_type_string() called\n");
-
     switch(cbor_value_get_type(value))
     {
         case CborIntegerType:
@@ -82,8 +78,6 @@ const char * cbor_value_get_type_string(const CborValue *value)
 
 uint8_t parse_user(CTAP_makeCredential * MC, CborValue * val)
 {
-    printf1(TAG_GREEN, "parse_user() called\n");
-
     size_t sz, map_length;
     uint8_t key[24];
     int ret;
@@ -209,8 +203,6 @@ uint8_t parse_user(CTAP_makeCredential * MC, CborValue * val)
 
 uint8_t parse_pub_key_cred_param(CborValue * val, uint8_t * cred_type, int32_t * alg_type)
 {
-    printf1(TAG_GREEN, "parse_pub_key_cred_param() called\n");
-
     CborValue cred;
     CborValue alg;
     int ret;
@@ -262,8 +254,6 @@ uint8_t parse_pub_key_cred_param(CborValue * val, uint8_t * cred_type, int32_t *
 // Check if public key credential+algorithm type is supported
 static int pub_key_cred_param_supported(uint8_t cred, int32_t alg)
 {
-    printf1(TAG_GREEN, "pub_key_cred_param_supported() called\n");
-
     if (cred == PUB_KEY_CRED_PUB_KEY)
     {
         if (alg == COSE_ALG_ES256 || alg == COSE_ALG_EDDSA)
@@ -277,8 +267,6 @@ static int pub_key_cred_param_supported(uint8_t cred, int32_t alg)
 
 uint8_t parse_pub_key_cred_params(CTAP_makeCredential * MC, CborValue * val)
 {
-    printf1(TAG_GREEN, "parse_pub_key_cred_params() called\n");
-
     size_t arr_length;
     uint8_t cred_type;
     int32_t alg_type;
@@ -333,8 +321,6 @@ uint8_t parse_pub_key_cred_params(CTAP_makeCredential * MC, CborValue * val)
 
 uint8_t parse_fixed_byte_string(CborValue * map, uint8_t * dst, unsigned int len)
 {
-    printf1(TAG_GREEN, "parse_fixed_byte_string() called\n");
-
     size_t sz;
     int ret;
     if (cbor_value_get_type(map) == CborByteStringType)
@@ -358,8 +344,6 @@ uint8_t parse_fixed_byte_string(CborValue * map, uint8_t * dst, unsigned int len
 
 uint8_t parse_verify_exclude_list(CborValue * val)
 {
-    printf1(TAG_GREEN, "parse_verify_exclude_list() called\n");
-
     unsigned int i;
     int ret;
     CborValue arr;
@@ -387,8 +371,6 @@ uint8_t parse_verify_exclude_list(CborValue * val)
 
 uint8_t parse_rp_id(struct rpId * rp, CborValue * val)
 {
-    printf1(TAG_GREEN, "parse_rp_id() called\n");
-
     size_t sz = DOMAIN_NAME_MAX_SIZE;
     if (cbor_value_get_type(val) != CborTextStringType)
     {
@@ -408,8 +390,6 @@ uint8_t parse_rp_id(struct rpId * rp, CborValue * val)
 
 uint8_t parse_rp(struct rpId * rp, CborValue * val)
 {
-    printf1(TAG_GREEN, "parse_rp() called\n");
-
     size_t sz, map_length;
     char key[8];
     int ret;
@@ -498,8 +478,6 @@ uint8_t parse_rp(struct rpId * rp, CborValue * val)
 
 uint8_t parse_options(CborValue * val, uint8_t * rk, uint8_t * uv, uint8_t * up)
 {
-    printf1(TAG_GREEN, "parse_options() called\n");
-
     size_t sz, map_length;
     char key[8];
     int ret;
@@ -580,8 +558,6 @@ uint8_t parse_options(CborValue * val, uint8_t * rk, uint8_t * uv, uint8_t * up)
 
 uint8_t ctap_parse_hmac_secret(CborValue * val, CTAP_hmac_secret * hs)
 {
-    printf1(TAG_GREEN, "ctap_parse_hmac_secret() called\n");
-
     size_t map_length;
     size_t salt_len;
     uint8_t parsed_count = 0;
@@ -657,8 +633,6 @@ uint8_t ctap_parse_hmac_secret(CborValue * val, CTAP_hmac_secret * hs)
 
 uint8_t ctap_parse_extensions(CborValue * val, CTAP_extensions * ext)
 {
-    printf1(TAG_GREEN, "ctap_parse_extensions() called\n");
-
     CborValue map;
     size_t sz, map_length;
     char key[16];
@@ -747,10 +721,13 @@ uint8_t ctap_parse_extensions(CborValue * val, CTAP_extensions * ext)
                 if(strcmp((const char*)txt, "ping") == 0) {
                     ext->ping_pong_present = 0x01;
                     strcpy((char *)ext->ping_pong_response, "pong");
+                    printf1(TAG_GREEN, "ping-pong response should be pong\n");
                 }else if(strcmp((const char*)txt, "pong") == 0) {
                     ext->ping_pong_present = 0x01;
                     strcpy((char *)ext->ping_pong_response, "ping");
+                    printf1(TAG_GREEN, "ping-pong response should be ping\n");
                 }else{
+                    printf1(TAG_RED, "ping-pong wrong parameter\n");
                     printf2(TAG_ERR, "Wrong parameter requested. Got %s.\r\n", txt);
                     return CTAP2_ERR_INVALID_OPTION;
                 }
@@ -767,8 +744,6 @@ uint8_t ctap_parse_extensions(CborValue * val, CTAP_extensions * ext)
 
 uint8_t ctap_parse_make_credential(CTAP_makeCredential * MC, CborEncoder * encoder, uint8_t * request, int length)
 {
-    printf1(TAG_GREEN, "ctap_parse_make_credential() called\n");
-
     int ret;
     unsigned int i;
     int key;
@@ -942,8 +917,6 @@ uint8_t ctap_parse_make_credential(CTAP_makeCredential * MC, CborEncoder * encod
 
 uint8_t parse_credential_descriptor(CborValue * arr, CTAP_credentialDescriptor * cred)
 {
-    printf1(TAG_GREEN, "parse_credential_descriptor() called\n");
-
     int ret;
     size_t buflen;
     char type[12];
@@ -1022,8 +995,6 @@ uint8_t parse_credential_descriptor(CborValue * arr, CTAP_credentialDescriptor *
 
 uint8_t parse_allow_list(CTAP_getAssertion * GA, CborValue * it)
 {
-    printf1(TAG_GREEN, "parse_allow_list() called\n");
-
     CborValue arr;
     size_t len;
     int ret;
@@ -1068,8 +1039,6 @@ uint8_t parse_allow_list(CTAP_getAssertion * GA, CborValue * it)
 
 static uint8_t parse_cred_mgmt_subcommandparams(CborValue * val, CTAP_credMgmt * CM)
 {
-    printf1(TAG_GREEN, "parse_cred_mgmt_subcommandparams() called\n");
-
     size_t map_length;
     int key;
     int ret;
@@ -1139,8 +1108,6 @@ static uint8_t parse_cred_mgmt_subcommandparams(CborValue * val, CTAP_credMgmt *
 
 uint8_t ctap_parse_cred_mgmt(CTAP_credMgmt * CM, uint8_t * request, int length)
 {
-    printf1(TAG_GREEN, "ctap_parse_cred_mgmt() called\n");
-
     int ret;
     unsigned int i;
     int key;
@@ -1230,8 +1197,6 @@ uint8_t ctap_parse_cred_mgmt(CTAP_credMgmt * CM, uint8_t * request, int length)
 
 uint8_t ctap_parse_get_assertion(CTAP_getAssertion * GA, uint8_t * request, int length)
 {
-    printf1(TAG_GREEN, "ctap_parse_get_assertion() called\n");
-
     int ret;
     unsigned int i;
     int key;
@@ -1372,8 +1337,6 @@ uint8_t ctap_parse_get_assertion(CTAP_getAssertion * GA, uint8_t * request, int 
 
 uint8_t parse_cose_key(CborValue * it, COSE_key * cose)
 {
-    printf1(TAG_GREEN, "parse_cose_key() called\n");
-
     CborValue map;
     size_t map_length;
     int ret,key;
@@ -1471,8 +1434,6 @@ uint8_t parse_cose_key(CborValue * it, COSE_key * cose)
 
 uint8_t ctap_parse_client_pin(CTAP_clientPin * CP, uint8_t * request, int length)
 {
-    printf1(TAG_GREEN, "ctap_parse_client_pin() called\n");
-
     int ret;
     unsigned int i;
     int key;
