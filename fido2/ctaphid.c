@@ -95,8 +95,6 @@ void ctaphid_init()
 
 static uint32_t get_new_cid()
 {
-    printf1(TAG_GREEN, "get_new_cid() called\n");
-
     static uint32_t cid = 1;
     do
     {
@@ -107,8 +105,6 @@ static uint32_t get_new_cid()
 
 static int8_t add_cid(uint32_t cid)
 {
-    printf1(TAG_GREEN, "add_cid() called\n");
-
     uint32_t i;
     for(i = 0; i < CID_MAX-1; i++)
     {
@@ -125,8 +121,6 @@ static int8_t add_cid(uint32_t cid)
 
 static int8_t cid_exists(uint32_t cid)
 {
-    printf1(TAG_GREEN, "cid_exists() called\n");
-
     uint32_t i;
     for(i = 0; i < CID_MAX-1; i++)
     {
@@ -140,8 +134,6 @@ static int8_t cid_exists(uint32_t cid)
 
 static int8_t cid_refresh(uint32_t cid)
 {
-    printf1(TAG_GREEN, "cid_refresh() called\n");
-
     uint32_t i;
     for(i = 0; i < CID_MAX-1; i++)
     {
@@ -157,8 +149,6 @@ static int8_t cid_refresh(uint32_t cid)
 
 static int8_t cid_del(uint32_t cid)
 {
-    printf1(TAG_GREEN, "cid_del() called\n");
-
     uint32_t i;
     for(i = 0; i < CID_MAX-1; i++)
     {
@@ -173,30 +163,22 @@ static int8_t cid_del(uint32_t cid)
 
 static int is_broadcast(CTAPHID_PACKET * pkt)
 {
-    printf1(TAG_GREEN, "is_broadcast() called\n");
-
     return (pkt->cid == CTAPHID_BROADCAST_CID);
 }
 
 static int is_init_pkt(CTAPHID_PACKET * pkt)
 {
-    printf1(TAG_GREEN, "is_init_pkt() called\n");
-
     return (pkt->pkt.init.cmd == CTAPHID_INIT);
 }
 
 static int is_cont_pkt(CTAPHID_PACKET * pkt)
 {
-    printf1(TAG_GREEN, "is_cont_pkt() called\n");
-
     return !(pkt->pkt.init.cmd & TYPE_INIT);
 }
 
 
 static int buffer_packet(CTAPHID_PACKET * pkt)
 {
-    printf1(TAG_GREEN, "buffer_packet() called\n");
-
     if (pkt->pkt.init.cmd & TYPE_INIT)
     {
         ctap_buffer_bcnt = ctaphid_packet_len(pkt);
@@ -234,8 +216,6 @@ static int buffer_packet(CTAPHID_PACKET * pkt)
 
 static void buffer_reset()
 {
-    printf1(TAG_GREEN, "buffer_reset() called\n");
-
     ctap_buffer_bcnt = 0;
     ctap_buffer_offset = 0;
     ctap_packet_seq = 0;
@@ -244,8 +224,6 @@ static void buffer_reset()
 
 static int buffer_status()
 {
-    printf1(TAG_GREEN, "buffer_status() called\n");
-
     if (ctap_buffer_bcnt == 0)
     {
         return EMPTY;
@@ -262,23 +240,17 @@ static int buffer_status()
 
 static int buffer_cmd()
 {
-    printf1(TAG_GREEN, "buffer_cmd() called\n");
-
     return ctap_buffer_cmd;
 }
 
 static uint32_t buffer_cid()
 {
-    printf1(TAG_GREEN, "buffer_cid() called\n");
-
     return ctap_buffer_cid;
 }
 
 
 static int buffer_len()
 {
-    printf1(TAG_GREEN, "buffer_len() called\n");
-
     return ctap_buffer_bcnt;
 }
 
@@ -286,8 +258,6 @@ static int buffer_len()
 // if len == 0, FLUSH
 static void ctaphid_write(CTAPHID_WRITE_BUFFER * wb, void * _data, int len)
 {
-    printf1(TAG_GREEN, "ctaphid_write() called\n");
-
     uint8_t * data = (uint8_t *)_data;
     if (_data == NULL)
     {
@@ -343,8 +313,6 @@ static void ctaphid_write(CTAPHID_WRITE_BUFFER * wb, void * _data, int len)
 
 static void ctaphid_send_error(uint32_t cid, uint8_t error)
 {
-    printf1(TAG_GREEN, "ctaphid_send_error() called\n");
-
     CTAPHID_WRITE_BUFFER wb;
     ctaphid_write_buffer_init(&wb);
 
@@ -358,8 +326,6 @@ static void ctaphid_send_error(uint32_t cid, uint8_t error)
 
 static void send_init_response(uint32_t oldcid, uint32_t newcid, uint8_t * nonce)
 {
-    printf1(TAG_GREEN, "send_init_response() called\n");
-
     CTAPHID_INIT_RESPONSE init_resp;
     CTAPHID_WRITE_BUFFER wb;
     ctaphid_write_buffer_init(&wb);
@@ -382,8 +348,6 @@ static void send_init_response(uint32_t oldcid, uint32_t newcid, uint8_t * nonce
 
 void ctaphid_check_timeouts()
 {
-    // printf1(TAG_GREEN, "ctaphid_check_timeouts() called\n");
-
     uint8_t i;
     for(i = 0; i < CID_MAX; i++)
     {
@@ -404,8 +368,6 @@ void ctaphid_check_timeouts()
 
 void ctaphid_update_status(int8_t status)
 {
-    // printf1(TAG_GREEN, "ctaphid_update_status() called\n");
-
     CTAPHID_WRITE_BUFFER wb;
     // printf1(TAG_HID, "Send device update %d!\n",status);    // As long as e.g. key not pressed this is printed
     ctaphid_write_buffer_init(&wb);
@@ -420,8 +382,6 @@ void ctaphid_update_status(int8_t status)
 
 static int ctaphid_buffer_packet(uint8_t * pkt_raw, uint8_t * cmd, uint32_t * cid, int * len)
 {
-    printf1(TAG_GREEN, "ctaphid_buffer_packet() called\n");
-
     CTAPHID_PACKET * pkt = (CTAPHID_PACKET *)(pkt_raw);
 
     printf1(TAG_HID, "Recv packet\n");
@@ -587,8 +547,6 @@ extern void solo_lock_if_not_already();
 
 uint8_t ctaphid_handle_packet(uint8_t * pkt_raw)
 {
-    printf1(TAG_GREEN, "ctaphid_handle_packet() called\n");
-
     uint8_t cmd = 0;
     uint32_t cid;
     int len = 0;
@@ -749,8 +707,6 @@ uint8_t ctaphid_handle_packet(uint8_t * pkt_raw)
 
 uint8_t ctaphid_custom_command(int len, CTAP_RESPONSE * ctap_resp, CTAPHID_WRITE_BUFFER * wb)
 {
-    printf1(TAG_GREEN, "ctaphid_custom_command() called\n");
-
     ctap_response_init(ctap_resp);
 
 #if !defined(IS_BOOTLOADER) && (defined(SOLO_EXPERIMENTAL))
