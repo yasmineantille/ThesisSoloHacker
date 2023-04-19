@@ -261,7 +261,9 @@ typedef struct
     uint32_t cred_protect;
 
     uint8_t ping_pong_present;
+    uint8_t greeter_present;
     char  ping_pong_response[4];
+    uint8_t greeter_response[32];
 } CTAP_extensions;
 
 typedef struct

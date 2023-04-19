@@ -652,6 +652,8 @@ uint8_t ctap_parse_extensions(CborValue * val, CTAP_extensions * ext)
     ret = cbor_value_get_map_length(val, &map_length);
     check_ret(ret);
 
+    printf1(TAG_CTAP, "Parse extensions, count %d\r\n", map_length);
+
     for (i = 0; i < map_length; i++)
     {
         if (cbor_value_get_type(&map) != CborTextStringType)
@@ -675,7 +677,7 @@ uint8_t ctap_parse_extensions(CborValue * val, CTAP_extensions * ext)
         ret = cbor_value_advance(&map);
         check_ret(ret);
 
-
+        printf1(TAG_CTAP, "Found extension: %s\r\n", key);
         if (strncmp(key, "hmac-secret",11) == 0)
         {
             if (cbor_value_get_type(&map) == CborBooleanType)
@@ -707,7 +709,7 @@ uint8_t ctap_parse_extensions(CborValue * val, CTAP_extensions * ext)
         }
         /// Added extension parsing for ping-pong
         else if (strncmp(key, "ping-pong",9) == 0) {
-            printf1(TAG_GREEN, "ping-pong called in ctap_parse");
+            printf1(TAG_CTAP, "Received ping-pong request\r\n");
 
             /// logic for new extension placed here
             if (cbor_value_get_type(&map) == CborTextStringType)
@@ -733,6 +735,23 @@ uint8_t ctap_parse_extensions(CborValue * val, CTAP_extensions * ext)
                 }
             }else{
                 printf1(TAG_RED, "warning: ping-pong request ignored for being wrong type\r\n");
+            }
+        }
+        /// Added extension parsing for greeter
+        else if (strncmp(key, "greeter", 7) == 0) {
+            printf1(TAG_CTAP, "Received greeter request\r\n");
+            if (cbor_value_get_type(&map) == CborTextStringType)
+            {
+                uint8_t txt[30];
+                sz = sizeof(txt);
+                ret = cbor_value_copy_text_string(&map, (char *)txt, &sz, NULL);
+                check_ret(ret);
+
+                ext->greeter_present = 0x01;
+                strcpy((char *)ext->greeter_response, "Hello ");
+                strcpy((char *)ext->greeter_response + 6, txt);
+            } else {
+                printf1(TAG_RED, "warning: greeter ignored (type)\r\n");
             }
         }
 

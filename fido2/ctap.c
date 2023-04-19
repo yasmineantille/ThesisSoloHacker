@@ -138,8 +138,6 @@ uint8_t ctap_get_info(CborEncoder * encoder)
     uint8_t aaguid[16];
     device_read_aaguid(aaguid);
 
-    // TODO: This part could use some cleanup? -Y
-    // Is there a nicer way of checking ret after each function return? -Y
     ret = cbor_encoder_create_map(encoder, &map, 8);
     check_ret(ret);
     {
@@ -167,7 +165,7 @@ uint8_t ctap_get_info(CborEncoder * encoder)
         check_ret(ret);
         {
             /// important, change array size for correct number of elements
-            ret = cbor_encoder_create_array(&map, &array, 3);
+            ret = cbor_encoder_create_array(&map, &array, 4);
             check_ret(ret);
             {
                 ret = cbor_encode_text_stringz(&array, "credProtect");
@@ -178,6 +176,10 @@ uint8_t ctap_get_info(CborEncoder * encoder)
 
                 /// Added extension for ping-pong
                 ret = cbor_encode_text_stringz(&array, "ping-pong");
+                check_ret(ret);
+
+                /// Add greeter extension
+                ret = cbor_encode_text_stringz(&array, "greeter");
                 check_ret(ret);
             }
             ret = cbor_encoder_close_container(&map, &array);
@@ -461,6 +463,7 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
     uint8_t hmac_secret_requested_is_valid = 0;
     uint8_t cred_protect_is_valid = 0;
     uint8_t ping_pong_is_valid = 0;     /// for new extension
+    uint8_t greeter_is_valid = 0;
     uint8_t hmac_secret_output[64];
     uint8_t shared_secret[32];
     uint8_t hmac[32];
@@ -548,6 +551,13 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
         ping_pong_is_valid = 1;
     }
 
+    if(ext->greeter_present)
+    {
+        printf1(TAG_GREEN, "greeter_present");
+        extensions_used += 1;
+        greeter_is_valid = 1;
+    }
+
     if (extensions_used > 0)
     {
 
@@ -597,10 +607,17 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
                     check_ret(ret);
                 }
             }
+            if (greeter_is_valid) {
+                {
+                    ret = cbor_encode_text_stringz(&extension_output_map, "greeter");
+                    check_ret(ret);
+                    ret = cbor_encode_text_stringz(&extension_output_map, (const char *)ext->greeter_response);
+                    check_ret(ret);
+                }
+            }
 
             ret = cbor_encoder_close_container(&extensions, &extension_output_map);
             check_ret(ret);
-
         }
         *ext_encoder_buf_size = cbor_encoder_get_buffer_size(&extensions, ext_encoder_buf);
 
