@@ -74,6 +74,9 @@
 #define EXT_HMAC_SECRET_REQUESTED   0x01
 #define EXT_HMAC_SECRET_PARSED      0x02
 
+// For Secure Auth Extension
+#define EXT_SEC_AUTH_SECRET_REQUESTED   0x01
+
 #define EXT_CRED_PROTECT_INVALID                0x00
 #define EXT_CRED_PROTECT_OPTIONAL               0x01
 #define EXT_CRED_PROTECT_OPTIONAL_WITH_CREDID   0x02
@@ -253,6 +256,11 @@ typedef struct
     struct Credential * credential;
 } CTAP_hmac_secret;
 
+// TODO: Define struct for Secure Auth communication
+typedef struct {
+
+} CTAP_sec_auth_secret;
+
 /// added extension for ping pong
 typedef struct
 {
@@ -262,8 +270,11 @@ typedef struct
 
     uint8_t ping_pong_present;
     uint8_t greeter_present;
-    char  ping_pong_response[4];
+    char ping_pong_response[4];
     uint8_t greeter_response[32];
+
+    uint8_t sec_auth_present;
+    CTAP_sec_auth_secret sec_auth_secret;
 } CTAP_extensions;
 
 typedef struct

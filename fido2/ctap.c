@@ -165,7 +165,7 @@ uint8_t ctap_get_info(CborEncoder * encoder)
         check_ret(ret);
         {
             /// important, change array size for correct number of elements
-            ret = cbor_encoder_create_array(&map, &array, 4);
+            ret = cbor_encoder_create_array(&map, &array, 5);
             check_ret(ret);
             {
                 ret = cbor_encode_text_stringz(&array, "credProtect");
@@ -180,6 +180,10 @@ uint8_t ctap_get_info(CborEncoder * encoder)
 
                 /// Add greeter extension
                 ret = cbor_encode_text_stringz(&array, "greeter");
+                check_ret(ret);
+
+                /// Added Secure Auth extension
+                ret = cbor_encode_text_stringz(&array, "secure-auth");
                 check_ret(ret);
             }
             ret = cbor_encoder_close_container(&map, &array);
@@ -464,6 +468,7 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
     uint8_t cred_protect_is_valid = 0;
     uint8_t ping_pong_is_valid = 0;     /// for new extension
     uint8_t greeter_is_valid = 0;
+    uint8_t sec_auth_is_valid = 0;
     uint8_t hmac_secret_output[64];
     uint8_t shared_secret[32];
     uint8_t hmac[32];
@@ -558,6 +563,14 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
         greeter_is_valid = 1;
     }
 
+    // Check if a message uses the Secure Auth extension
+    if(ext->sec_auth_present)
+    {
+        printf1(TAG_GREEN, "sec_auth_present");
+        extensions_used += 1;
+        sec_auth_is_valid = 1;
+    }
+
     if (extensions_used > 0)
     {
 
@@ -612,6 +625,17 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
                     ret = cbor_encode_text_stringz(&extension_output_map, "greeter");
                     check_ret(ret);
                     ret = cbor_encode_text_stringz(&extension_output_map, (const char *)ext->greeter_response);
+                    check_ret(ret);
+                }
+            }
+            // set the correct response (currently returns boolean)
+            if (sec_auth_is_valid) {
+                {
+                    ret = cbor_encode_text_stringz(&extension_output_map, "secure-auth");
+                    check_ret(ret);
+
+                    // TODO: change proper output
+                    ret = cbor_encode_boolean(&extension_output_map, 1);
                     check_ret(ret);
                 }
             }

@@ -754,7 +754,22 @@ uint8_t ctap_parse_extensions(CborValue * val, CTAP_extensions * ext)
                 printf1(TAG_RED, "warning: greeter ignored (type)\r\n");
             }
         }
-
+        /// Added Secure Auth extension
+        else if (strncmp(key, "secure-auth", 11) == 0)
+        {
+            printf1(TAG_PARSE, "Received Secure Auth request\r\n");
+            if (cbor_value_get_type(&map) == CborBooleanType)
+            {
+                ret = cbor_value_get_boolean(&map, &b);
+                check_ret(ret);
+                if (b) ext->sec_auth_present = EXT_SEC_AUTH_SECRET_REQUESTED;
+                printf1(TAG_PARSE, "set sec_auth_present to %d\r\n", b);
+            }
+            else
+            {
+                printf1(TAG_RED, "warning: sec_auth_secret request ignored for being wrong type\r\n");
+            }
+        }
         ret = cbor_value_advance(&map);
         check_ret(ret);
     }
