@@ -347,6 +347,7 @@ static int ctap_add_cose_key(CborEncoder * cose_key, uint8_t * x, uint8_t * y, u
 
     return 0;
 }
+
 static int ctap_generate_cose_key(CborEncoder * cose_key, uint8_t * hmac_input, int len, uint8_t credtype, int32_t algtype)
 {
     uint8_t x[32], y[32];
@@ -474,7 +475,11 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
     uint8_t credRandom[32];
     uint8_t saltEnc[64];
 
+    /// for secure auth extension
     uint8_t sec_auth_is_valid = 0;
+    uint8_t data_buf[64];  // TODO: what size should this be?
+    CTAP_secure_auth * sec_auth_data = (CTAP_secure_auth *)data_buf;
+    uint8_t secure_auth_output[64]; // TODO: what size should this be?
 
     if (ext->hmac_secret_present == EXT_HMAC_SECRET_PARSED)
     {
@@ -564,17 +569,31 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
         greeter_is_valid = 1;
     }
 
-    // Check if a message uses the Secure Auth extension
+    // Check if a message uses the Secure Auth extension and process the extension
     if(ext->sec_auth_present == EXT_SEC_AUTH_PARSED)
     {
-        printf1(TAG_GREEN, "sec_auth_present\n");
+        printf1(TAG_CTAP, "Processing secure-auth extension...\r\n");
+
+
+        // create random rid for the client
+        if (ctap_generate_rng(sec_auth_data->rid, SEC_AUTH_RID_SIZE) != 1)
+        {
+            printf1(TAG_ERR,"Error, rng failed\n");
+            exit(1);
+        }
+
+        // TODO: If not necessary to have temp variable just directly save to ext variable
+        printf1(TAG_GREEN, "Generated rid: ");
+        dump_hex1(TAG_GREEN, sec_auth_data->rid, sizeof sec_auth_data->rid);
+        memmove(ext->secure_auth.rid, sec_auth_data->rid, sizeof sec_auth_data->rid);
+
+
         extensions_used += 1;
         sec_auth_is_valid = 1;
     }
 
     if (extensions_used > 0)
     {
-
         // output
         cbor_encoder_init(&extensions, ext_encoder_buf, *ext_encoder_buf_size, 0);
         {
@@ -629,15 +648,12 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
                     check_ret(ret);
                 }
             }
-            // TODO: set the correct response (currently returns boolean)
-            if (sec_auth_is_valid)
-            {
+            if (sec_auth_is_valid) {
                 {
                     ret = cbor_encode_text_stringz(&extension_output_map, "secure-auth");
                     check_ret(ret);
-
-                    // TODO: change proper output
-                    ret = cbor_encode_boolean(&extension_output_map, 1);
+                    // Return rid
+                    ret = cbor_encode_byte_string(&extension_output_map, ext->secure_auth.rid, sizeof ext->secure_auth.rid);
                     check_ret(ret);
                 }
             }
@@ -651,9 +667,6 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
     {
         *ext_encoder_buf_size = 0;
     }
-
-
-
     return 0;
 }
 
@@ -748,6 +761,7 @@ static int ctap_make_auth_data(struct rpId * rp, CborEncoder * map, uint8_t * au
         memset((uint8_t*)&authData->attest.id, 0, sizeof(CredentialId));
 
         ctap_generate_rng(authData->attest.id.entropy.nonce, CREDENTIAL_NONCE_SIZE);
+        printf1(TAG_GREEN, "Random nr for authdata created: %d\r\n", authData->attest.id.entropy.nonce);
 
         uint8_t alg = credInfo->COSEAlgorithmIdentifier == COSE_ALG_EDDSA? CREDID_ALG_EDDSA : CREDID_ALG_ES256;
         add_masked_metadata_for_credential(&authData->attest.id, extensions->cred_protect | (alg << 16));
@@ -2156,7 +2170,6 @@ uint8_t ctap_add_pin_if_verified(uint8_t * pinTokenEnc, uint8_t * platform_pubke
     uint8_t shared_secret[32];
 
     // calculate shared secret
-    // TODO: shouldn't shared_secret here be a pointer? -Y
     crypto_ecc256_shared_secret(platform_pubkey, KEY_AGREEMENT_PRIV, shared_secret);
 
     crypto_sha256_init();
@@ -2358,8 +2371,8 @@ uint8_t ctap_request(uint8_t * pkt_raw, int length, CTAP_RESPONSE * resp)
     memset(&encoder,0,sizeof(CborEncoder));
     uint8_t status = 0;
     uint8_t cmd = *pkt_raw;
-    pkt_raw++;  // TODO: Why? -Y
-    length--;   // TODO: Why? -Y
+    pkt_raw++;
+    length--;
 
     uint8_t * buf = resp->data;
 
@@ -2420,7 +2433,7 @@ uint8_t ctap_request(uint8_t * pkt_raw, int length, CTAP_RESPONSE * resp)
 
             resp->length = cbor_encoder_get_buffer_size(&encoder, buf);
 
-            dump_hex1(TAG_DUMP, buf, resp->length); // TODO: What does this do? -Y
+            dump_hex1(TAG_DUMP, buf, resp->length);
 
             break;
         case CTAP_CLIENT_PIN:

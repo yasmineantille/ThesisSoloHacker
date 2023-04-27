@@ -556,6 +556,9 @@ uint8_t parse_options(CborValue * val, uint8_t * rk, uint8_t * uv, uint8_t * up)
     return 0;
 }
 
+/**
+ * Parsing secure auth extension input
+ */
 uint8_t ctap_parse_secure_auth(CborValue * val, CTAP_secure_auth * sa)
 {
     size_t map_length;
@@ -593,7 +596,7 @@ uint8_t ctap_parse_secure_auth(CborValue * val, CTAP_secure_auth * sa)
         if (key == EXT_SEC_AUTH_TEMPLATE)
         {
             printf1(TAG_PARSE, "EXT_SEC_AUTH_TEMPLATE case called\n");
-            // TODO parse template here
+            // TODO parse template here and save locally
             parsed_count++;
         }
 

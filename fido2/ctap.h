@@ -75,8 +75,10 @@
 #define EXT_HMAC_SECRET_PARSED      0x02
 
 // For Secure Auth Extension
-#define EXT_SEC_AUTH_PARSED   0x01
-#define EXT_SEC_AUTH_TEMPLATE    0x01
+#define EXT_SEC_AUTH_PARSED     0x01
+#define SEC_AUTH_RID_SIZE       32
+// Key values for Secure Auth input
+#define EXT_SEC_AUTH_TEMPLATE   0x01
 
 #define EXT_CRED_PROTECT_INVALID                0x00
 #define EXT_CRED_PROTECT_OPTIONAL               0x01
@@ -259,6 +261,7 @@ typedef struct
 
 typedef struct {
     uint8_t templateLen;
+    uint8_t rid[SEC_AUTH_RID_SIZE];
 } CTAP_secure_auth;
 
 /// added extension for ping pong
@@ -274,6 +277,7 @@ typedef struct
     uint8_t greeter_response[32];
 
     uint8_t sec_auth_present;
+    uint8_t sec_auth_enrollment;
     CTAP_secure_auth secure_auth;
 } CTAP_extensions;
 
