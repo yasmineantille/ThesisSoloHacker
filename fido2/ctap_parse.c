@@ -556,6 +556,70 @@ uint8_t parse_options(CborValue * val, uint8_t * rk, uint8_t * uv, uint8_t * up)
     return 0;
 }
 
+uint8_t ctap_parse_secure_auth(CborValue * val, CTAP_secure_auth * sa)
+{
+    size_t map_length;
+    // size_t template_length;
+    uint8_t parsed_count = 0;
+    int key;    // for parsing input map
+    int ret;
+    unsigned int i;
+    CborValue map;
+
+    if (cbor_value_get_type(val) != CborMapType)
+    {
+        printf1(TAG_ERR,"error, wrong type\n");
+        return CTAP2_ERR_INVALID_CBOR_TYPE;
+    }
+
+    ret = cbor_value_enter_container(val,&map);
+    check_ret(ret);
+
+    ret = cbor_value_get_map_length(val, &map_length);
+    check_ret(ret);
+
+    for (i = 0; i < map_length; i++) {
+        if (cbor_value_get_type(&map) != CborIntegerType)
+        {
+            printf1(TAG_ERR,"Error, expecting CborIntegerType for secure auth map key, got %s\n", cbor_value_get_type_string(&map));
+            return CTAP2_ERR_INVALID_CBOR_TYPE;
+        }
+        ret = cbor_value_get_int(&map, &key);
+        check_ret(ret);
+
+        ret = cbor_value_advance(&map);
+        check_ret(ret);
+
+        if (key == EXT_SEC_AUTH_TEMPLATE)
+        {
+            printf1(TAG_PARSE, "EXT_SEC_AUTH_TEMPLATE case called\n");
+            // TODO parse template here
+            parsed_count++;
+        }
+
+        // when multiple idx sent in request can make switch case out of it instead
+//        switch(key)
+//        {
+//            case EXT_SEC_AUTH_TEMPLATE:
+//                printf1(TAG_PARSE, "EXT_SEC_AUTH_TEMPLATE case called\n");
+//                // TODO parse template here
+//                parsed_count++;
+//                break;
+//        }
+
+        ret = cbor_value_advance(&map);
+        check_ret(ret);
+    }
+
+    if (parsed_count != 1)
+    {
+        printf1(TAG_ERR, "ctap_parse_secure_auth missing parameter.  Got %d.\r\n", parsed_count);
+        return CTAP2_ERR_MISSING_PARAMETER;
+    }
+
+    return 0;
+}
+
 uint8_t ctap_parse_hmac_secret(CborValue * val, CTAP_hmac_secret * hs)
 {
     size_t map_length;
@@ -758,16 +822,17 @@ uint8_t ctap_parse_extensions(CborValue * val, CTAP_extensions * ext)
         else if (strncmp(key, "secure-auth", 11) == 0)
         {
             printf1(TAG_PARSE, "Received Secure Auth request\r\n");
-            if (cbor_value_get_type(&map) == CborBooleanType)
+            if (cbor_value_get_type(&map) == CborMapType)
             {
-                ret = cbor_value_get_boolean(&map, &b);
+                ret = ctap_parse_secure_auth(&map, &ext->secure_auth);
                 check_ret(ret);
-                if (b) ext->sec_auth_present = EXT_SEC_AUTH_SECRET_REQUESTED;
-                printf1(TAG_PARSE, "set sec_auth_present to %d\r\n", b);
+                // TODO: will ext overwrite other extensions if multiple are called?
+                ext->sec_auth_present = EXT_SEC_AUTH_PARSED;
+                printf1(TAG_CTAP, "parsed sec_auth_present request\r\n");
             }
             else
             {
-                printf1(TAG_RED, "warning: sec_auth_secret request ignored for being wrong type\r\n");
+                printf1(TAG_RED, "warning: secure_auth request ignored for being wrong type\r\n");
             }
         }
         ret = cbor_value_advance(&map);

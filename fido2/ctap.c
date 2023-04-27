@@ -468,12 +468,13 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
     uint8_t cred_protect_is_valid = 0;
     uint8_t ping_pong_is_valid = 0;     /// for new extension
     uint8_t greeter_is_valid = 0;
-    uint8_t sec_auth_is_valid = 0;
     uint8_t hmac_secret_output[64];
     uint8_t shared_secret[32];
     uint8_t hmac[32];
     uint8_t credRandom[32];
     uint8_t saltEnc[64];
+
+    uint8_t sec_auth_is_valid = 0;
 
     if (ext->hmac_secret_present == EXT_HMAC_SECRET_PARSED)
     {
@@ -564,9 +565,9 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
     }
 
     // Check if a message uses the Secure Auth extension
-    if(ext->sec_auth_present)
+    if(ext->sec_auth_present == EXT_SEC_AUTH_PARSED)
     {
-        printf1(TAG_GREEN, "sec_auth_present");
+        printf1(TAG_GREEN, "sec_auth_present\n");
         extensions_used += 1;
         sec_auth_is_valid = 1;
     }
@@ -628,8 +629,9 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
                     check_ret(ret);
                 }
             }
-            // set the correct response (currently returns boolean)
-            if (sec_auth_is_valid) {
+            // TODO: set the correct response (currently returns boolean)
+            if (sec_auth_is_valid)
+            {
                 {
                     ret = cbor_encode_text_stringz(&extension_output_map, "secure-auth");
                     check_ret(ret);

@@ -669,7 +669,6 @@ static int handle_packets(void)
 
 static int wait_for_button_activate(uint32_t wait)
 {
-    printf("wait_for_button_activate() called in device.c");
     int ret;
     uint32_t start = millis();
     do
