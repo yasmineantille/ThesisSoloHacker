@@ -459,6 +459,33 @@ static int is_cred_id_matching_rk(CredentialId * credId, CTAP_residentKey * rk)
     return (memcmp(credId, &rk->id, sizeof(CredentialId)) == 0);
 }
 
+/**
+ * Creates msk for secure auth extension
+ * @return 1 if successful, otherwise failed
+ */
+static int ctap_sec_auth_create_msk(CTAP_secure_auth * secureAuthData)
+{
+    int i;
+    for (i = 0; i < SEC_AUTH_MSK_N; ++i) {
+        if (ctap_generate_rng(&secureAuthData->msk.k[i*SEC_AUTH_RNR_SIZE], SEC_AUTH_RNR_SIZE) != 1) {
+            printf1(TAG_ERR, "Error, rng failed\n");
+            return CTAP2_ERR_PROCESSING;
+        }
+        printf1(TAG_GREEN, "Generated k: ");
+        dump_hex1(TAG_GREEN, (uint8_t *) &secureAuthData->msk.k[i*SEC_AUTH_RNR_SIZE], SEC_AUTH_RNR_SIZE);
+        printf1(TAG_GREEN, "\n");
+
+        if (ctap_generate_rng(&secureAuthData->msk.r[i*SEC_AUTH_RR_SIZE], SEC_AUTH_RR_SIZE) != 1) {
+            printf1(TAG_ERR, "Error, rng failed\n");
+            return CTAP2_ERR_PROCESSING;
+        }
+        printf1(TAG_GREEN, "Generated r: ");
+        dump_hex1(TAG_GREEN, (uint8_t *) &secureAuthData->msk.r[i*SEC_AUTH_RR_SIZE], SEC_AUTH_RR_SIZE);
+        printf1(TAG_GREEN, "\n");
+    }
+    return 1;
+}
+
 static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf, unsigned int * ext_encoder_buf_size)
 {
     CborEncoder extensions;
@@ -477,6 +504,7 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
 
     /// for secure auth extension
     uint8_t sec_auth_is_valid = 0;
+    // TODO: is buf really necessary?
     uint8_t data_buf[64];  // TODO: what size should this be?
     CTAP_secure_auth * sec_auth_data = (CTAP_secure_auth *)data_buf;
     uint8_t secure_auth_output[64]; // TODO: what size should this be?
@@ -574,7 +602,6 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
     {
         printf1(TAG_CTAP, "Processing secure-auth extension...\r\n");
 
-
         // create random rid for the client
         if (ctap_generate_rng(sec_auth_data->rid, SEC_AUTH_RID_SIZE) != 1)
         {
@@ -582,11 +609,22 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
             exit(1);
         }
 
+        // create msk
+        if (ctap_sec_auth_create_msk(&ext->secure_auth) != 1)
+        {
+            printf1(TAG_ERR,"Error, creating msk for secure auth failed\n");
+            exit(1);
+        }
+
+        // create signature key pair
+        // crypto_ecc256_make_key_pair()
+
         // TODO: If not necessary to have temp variable just directly save to ext variable
         printf1(TAG_GREEN, "Generated rid: ");
         dump_hex1(TAG_GREEN, sec_auth_data->rid, sizeof sec_auth_data->rid);
         memmove(ext->secure_auth.rid, sec_auth_data->rid, sizeof sec_auth_data->rid);
 
+        // TODO: add to output variable
 
         extensions_used += 1;
         sec_auth_is_valid = 1;

@@ -77,6 +77,11 @@
 // For Secure Auth Extension
 #define EXT_SEC_AUTH_PARSED     0x01
 #define SEC_AUTH_RID_SIZE       32
+
+// For master secret
+#define SEC_AUTH_MSK_N          0x05
+#define SEC_AUTH_RNR_SIZE       32
+#define SEC_AUTH_RR_SIZE        2
 // Key values for Secure Auth input
 #define EXT_SEC_AUTH_TEMPLATE   0x01
 
@@ -259,9 +264,17 @@ typedef struct
     struct Credential * credential;
 } CTAP_hmac_secret;
 
+// master secret of sec auth setup
+// msk = ([k1, ..., kn], [r1, ..., rn])
+typedef struct {
+    uint8_t k[SEC_AUTH_MSK_N*SEC_AUTH_RNR_SIZE];
+    uint8_t r[SEC_AUTH_MSK_N*SEC_AUTH_RR_SIZE];
+} SecureAuthMSK;
+
 typedef struct {
     uint8_t templateLen;
     uint8_t rid[SEC_AUTH_RID_SIZE];
+    SecureAuthMSK msk;
 } CTAP_secure_auth;
 
 /// added extension for ping pong
