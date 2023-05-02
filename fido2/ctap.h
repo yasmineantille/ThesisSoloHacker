@@ -82,6 +82,11 @@
 #define SEC_AUTH_MSK_N          0x05
 #define SEC_AUTH_RNR_SIZE       32
 #define SEC_AUTH_RR_SIZE        2
+
+// for template
+#define SEC_AUTH_TEMPLATE_N  0x05
+#define SEC_AUTH_TEMPLATE_SIZE  8
+
 // Key values for Secure Auth input
 #define EXT_SEC_AUTH_TEMPLATE   0x01
 
@@ -272,7 +277,7 @@ typedef struct {
 } SecureAuthMSK;
 
 typedef struct {
-    uint8_t templateLen;
+    uint8_t template[SEC_AUTH_TEMPLATE_N*SEC_AUTH_TEMPLATE_N*SEC_AUTH_TEMPLATE_SIZE];
     uint8_t rid[SEC_AUTH_RID_SIZE];
     SecureAuthMSK msk;
 } CTAP_secure_auth;
