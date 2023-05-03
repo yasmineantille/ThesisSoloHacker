@@ -556,18 +556,67 @@ uint8_t parse_options(CborValue * val, uint8_t * rk, uint8_t * uv, uint8_t * up)
     return 0;
 }
 
+// TODO parse template here and save locally
+uint8_t parse_biometric_template(CborValue * it, uint8_t * sa)
+{
+    CborValue arr;
+    size_t arr_length;
+    int ret;
+    unsigned int i;
+
+    CborType type = cbor_value_get_type(it);
+    printf1(TAG_ERR,"Received secure auth type: %s\n", cbor_value_get_type_string(&it));
+
+    if (cbor_value_get_type(&it) != CborArrayType)
+    {
+        printf1(TAG_ERR,"Error, expecting CborArrayType for secure auth map key, got %s\n", cbor_value_get_type_string(&it));
+        return CTAP2_ERR_INVALID_CBOR_TYPE;
+    }
+
+    ret = cbor_value_enter_container(it,&arr);
+    check_ret(ret);
+
+    ret = cbor_value_get_array_length(&arr, &arr_length);
+    check_ret(ret);
+    printf1(TAG_PARSE, "Biometric template array has %u elements\n", arr_length);
+
+    for (i = 0; i < arr_length; i++) {
+        printf1(TAG_PARSE, "for loop through template with i = %d \n", i);
+
+        if (cbor_value_get_type(&arr) != CborIntegerType)
+        {
+            printf1(TAG_ERR,"Error, expecting CborIntegerType for secure auth map key, got %s\n", cbor_value_get_type_string(&arr));
+            return CTAP2_ERR_INVALID_CBOR_TYPE;
+        }
+
+        uint8_t temp;
+        ret = cbor_value_get_int64(&arr, &temp);
+        check_ret(ret);
+        printf1(TAG_GREEN, "Template integer temp variable: %u \n", temp);
+
+        memmove(&sa[i*SEC_AUTH_TEMPLATE_SIZE], &temp, sizeof temp);
+
+        printf1(TAG_GREEN, "Template integer in secure auth struct: %u\n", sa[i*SEC_AUTH_TEMPLATE_SIZE]);
+
+        ret = cbor_value_advance(&arr);
+        check_ret(ret);
+    }
+    return 0;
+}
+
 /**
  * Parsing secure auth extension input
  */
 uint8_t ctap_parse_secure_auth(CborValue * val, CTAP_secure_auth * sa)
 {
+    CborValue map;
     size_t map_length;
-    // size_t template_length;
     uint8_t parsed_count = 0;
-    int key;    // for parsing input map
+    int key;
     int ret;
     unsigned int i;
-    CborValue map;
+
+    printf1(TAG_ERR,"ctap_parse_secure_auth() called\n");
 
     if (cbor_value_get_type(val) != CborMapType)
     {
@@ -575,50 +624,48 @@ uint8_t ctap_parse_secure_auth(CborValue * val, CTAP_secure_auth * sa)
         return CTAP2_ERR_INVALID_CBOR_TYPE;
     }
 
-    ret = cbor_value_enter_container(val,&map);
-    check_ret(ret);
-
-    ret = cbor_value_get_map_length(val, &map_length);
-    check_ret(ret);
-
-    for (i = 0; i < map_length; i++) {
-        if (cbor_value_get_type(&map) != CborIntegerType)
-        {
-            printf1(TAG_ERR,"Error, expecting CborIntegerType for secure auth map key, got %s\n", cbor_value_get_type_string(&map));
-            return CTAP2_ERR_INVALID_CBOR_TYPE;
-        }
-        ret = cbor_value_get_int(&map, &key);
-        check_ret(ret);
-
-        ret = cbor_value_advance(&map);
-        check_ret(ret);
-
-        if (key == EXT_SEC_AUTH_TEMPLATE)
-        {
-            printf1(TAG_PARSE, "EXT_SEC_AUTH_TEMPLATE case called\n");
-            // TODO parse template here and save locally
-            parsed_count++;
-        }
-
-        // when multiple idx sent in request can make switch case out of it instead
-//        switch(key)
+//    ret = cbor_value_enter_container(val,&map);
+//    check_ret(ret);
+//
+//    ret = cbor_value_get_map_length(val, &map_length);
+//    check_ret(ret);
+//
+//    for (i = 0; i < map_length; i++) {
+//        if (cbor_value_get_type(&map) != CborIntegerType)
 //        {
-//            case EXT_SEC_AUTH_TEMPLATE:
-//                printf1(TAG_PARSE, "EXT_SEC_AUTH_TEMPLATE case called\n");
-//                // TODO parse template here
-//                parsed_count++;
-//                break;
+//            printf1(TAG_ERR,"Error, expecting CborIntegerType for secure auth map key, got %s\n", cbor_value_get_type_string(&map));
+//            return CTAP2_ERR_INVALID_CBOR_TYPE;
 //        }
-
-        ret = cbor_value_advance(&map);
-        check_ret(ret);
-    }
-
-    if (parsed_count != 1)
-    {
-        printf1(TAG_ERR, "ctap_parse_secure_auth missing parameter.  Got %d.\r\n", parsed_count);
-        return CTAP2_ERR_MISSING_PARAMETER;
-    }
+//        ret = cbor_value_get_int(&map, &key);
+//        check_ret(ret);
+//
+//        ret = cbor_value_advance(&map);
+//        check_ret(ret);
+//
+////        if (key == EXT_SEC_AUTH_TEMPLATE)
+////        {
+////            printf1(TAG_PARSE, "EXT_SEC_AUTH_TEMPLATE\r\n");
+////            ret = parse_biometric_template(&map, &sa->template);
+////            check_ret(ret);
+////            parsed_count++;
+////        }
+//        switch(key) {
+//            case EXT_SEC_AUTH_TEMPLATE:
+//                printf1(TAG_PARSE, "EXT_SEC_AUTH_TEMPLATE\r\n");
+//                //ret = parse_biometric_template(&map, &sa->template);
+//                check_ret(ret);
+//                parsed_count++;
+//        }
+//
+//        ret = cbor_value_advance(&map);
+//        check_ret(ret);
+//    }
+//
+//    if (parsed_count != 1)
+//    {
+//        printf1(TAG_ERR, "ctap_parse_secure_auth missing parameter.  Got %d.\r\n", parsed_count);
+//        return CTAP2_ERR_MISSING_PARAMETER;
+//    }
 
     return 0;
 }
