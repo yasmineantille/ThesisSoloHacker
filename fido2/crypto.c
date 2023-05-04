@@ -201,7 +201,7 @@ void crypto_ecc256_load_attestation_key(void)
 {
     _signing_key = device_get_attestation_key();
     _key_len = 32;
-    printf1(TAG_CTAP, "ecc256 loaded attestation key");
+    printf1(TAG_CTAP, "ecc256 loaded attestation key\n");
 }
 
 void crypto_ecc256_sign(uint8_t * data, int len, uint8_t * sig)
@@ -307,6 +307,20 @@ void crypto_ecc256_make_key_pair(uint8_t * pubkey, uint8_t * privkey)
     {
         printf2(TAG_ERR, "Error, uECC_make_key failed\n");
         exit(1);
+    }
+}
+
+// point = x
+void crypto_ecc256_scalar_mult(uint8_t * result, uint8_t * point, uint8_t * scalar)
+{
+    printf1(TAG_GREEN, "crypto_ecc256_scalar_mult() called \n");
+    if (uECC_scalar_multiplication(result, point, scalar, _es256_curve) != 1)
+    {
+        printf1(TAG_ERR, "Error, uECC_make_key failed\n");
+        exit(1);
+    } else {
+        printf1(TAG_GREEN, "Result of scalar multiplication validity: %s\n");
+        dump_hex1(TAG_GREEN, result, 64);
     }
 }
 

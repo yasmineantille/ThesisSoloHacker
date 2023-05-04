@@ -53,5 +53,8 @@ void crypto_aes256_encrypt(uint8_t * buf, int lenth);
 void crypto_reset_master_secret();
 void crypto_load_master_secret(uint8_t * key);
 
+// for secure auth
+void crypto_ecc256_scalar_mult(uint8_t * result, uint8_t * point, uint8_t * scalar);
+
 
 #endif

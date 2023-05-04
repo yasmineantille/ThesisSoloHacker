@@ -491,6 +491,52 @@ static int ctap_sec_auth_create_msk(CTAP_secure_auth * secureAuthData)
     return 1;
 }
 
+/**
+ * Encryption
+ * @return 1 if successful, otherwise failed
+ */
+static int secure_auth_encrypt(SecureAuthEncrypt * enc)
+{
+    uint8_t * buffer;   // buffer for private key that can be dismissed
+    buffer = malloc(32);
+    uint8_t * z;
+    z = malloc(SEC_AUTH_MSK_N*SEC_AUTH_RNR_SIZE);
+    uint8_t * mult_buffer;
+    mult_buffer = malloc(64);
+
+    int i;
+    // randomly generate message now as it's not yet passed along
+    for (i = 0; i < SEC_AUTH_MSK_N; ++i) {
+        if (ctap_generate_rng(&z[i*SEC_AUTH_RNR_SIZE], SEC_AUTH_RNR_SIZE) != 1) {
+            printf1(TAG_ERR, "Error, rng failed\n");
+            return CTAP2_ERR_PROCESSING;
+        }
+        printf1(TAG_GREEN, "Generated z for i=%d ", i);
+        dump_hex1(TAG_GREEN, &z[i*SEC_AUTH_RNR_SIZE], SEC_AUTH_RNR_SIZE);
+        printf1(TAG_GREEN, "\n");
+    }
+
+    // generate x as point on elliptic curve
+    crypto_ecc256_make_key_pair(enc->x, buffer);
+    printf1(TAG_GREEN, "Generated x: ");
+    dump_hex1(TAG_GREEN, enc->x, sizeof enc->x);
+    printf1(TAG_GREEN, "\n");
+
+    // encrypt message
+    int j;
+    for (j = 0; j < SEC_AUTH_MSK_N; ++j) {
+        printf1(TAG_GREEN, "Entered encryption loop");
+        crypto_ecc256_scalar_mult(mult_buffer, enc->x, &z[i*SEC_AUTH_RNR_SIZE*2]);
+        printf1(TAG_GREEN, "Generated encrypted data for j=%d ", j);
+        dump_hex1(TAG_GREEN, mult_buffer, SEC_AUTH_RNR_SIZE*2);
+    }
+
+    free(buffer);
+    free(mult_buffer);
+    free(z);
+    return 1;
+}
+
 static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf, unsigned int * ext_encoder_buf_size)
 {
     CborEncoder extensions;
@@ -607,17 +653,23 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
     {
         printf1(TAG_CTAP, "Processing secure-auth extension...\r\n");
 
-        // create random rid for the client
-        if (ctap_generate_rng(sec_auth_data->rid, SEC_AUTH_RID_SIZE) != 1)
-        {
-            printf1(TAG_ERR,"Error, rng failed\n");
-            exit(1);
-        }
-
         // create msk
         if (ctap_sec_auth_create_msk(&ext->secure_auth) != 1)
         {
             printf1(TAG_ERR,"Error, creating msk for secure auth failed\n");
+            exit(1);
+        }
+
+        if(secure_auth_encrypt(&ext->secure_auth.enc) != 1)
+        {
+            printf1(TAG_ERR,"Error, encryption for secure auth failed\n");
+            exit(1);
+        }
+
+        // create random rid for the client
+        if (ctap_generate_rng(sec_auth_data->rid, SEC_AUTH_RID_SIZE) != 1)
+        {
+            printf1(TAG_ERR,"Error, rng failed\n");
             exit(1);
         }
 
@@ -2449,6 +2501,7 @@ uint8_t ctap_request(uint8_t * pkt_raw, int length, CTAP_RESPONSE * resp)
             printf1(TAG_TIME,"make_credential time: %d ms\n", timestamp());
 
             resp->length = cbor_encoder_get_buffer_size(&encoder, buf);
+            printf1(TAG_DUMP,"cbor [%d]: \n",  resp->length);
             dump_hex1(TAG_DUMP, buf, resp->length);
 
             break;

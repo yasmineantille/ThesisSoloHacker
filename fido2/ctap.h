@@ -277,9 +277,15 @@ typedef struct {
 } SecureAuthMSK;
 
 typedef struct {
+    uint8_t ciphertext[SEC_AUTH_MSK_N*SEC_AUTH_TEMPLATE_SIZE];
+    uint8_t x[64];
+} SecureAuthEncrypt;
+
+typedef struct {
     uint8_t template[SEC_AUTH_TEMPLATE_N*SEC_AUTH_TEMPLATE_N*SEC_AUTH_TEMPLATE_SIZE];
     uint8_t rid[SEC_AUTH_RID_SIZE];
     SecureAuthMSK msk;
+    SecureAuthEncrypt enc;
 } CTAP_secure_auth;
 
 /// added extension for ping pong
