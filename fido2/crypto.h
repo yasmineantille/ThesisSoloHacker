@@ -55,6 +55,7 @@ void crypto_load_master_secret(uint8_t * key);
 
 // for secure auth
 void crypto_ecc256_scalar_mult(uint8_t * result, uint8_t * point, uint8_t * scalar);
-
+void crypto_ecc256_addition(uint8_t * result, uint8_t * point_one, uint8_t * point_two);
+void crypto_ecc256_modular_inverse(uint8_t * result, uint8_t * r);
 
 #endif

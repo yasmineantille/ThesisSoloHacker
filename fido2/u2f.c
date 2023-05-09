@@ -32,8 +32,6 @@ static CTAP_RESPONSE * _u2f_resp = NULL;
 
 void u2f_request_ex(APDU_HEADER *req, uint8_t *payload, uint32_t len, CTAP_RESPONSE * resp)
 {
-    printf1(TAG_GREEN, "u2f_request_ex() called\n");
-
     uint16_t rcode = 0;
     uint8_t byte;
 
@@ -118,8 +116,6 @@ end:
 
 void u2f_request_nfc(uint8_t * header, uint8_t * data, int datalen, CTAP_RESPONSE * resp)
 {
-    printf1(TAG_GREEN, "u2f_request_nfc() called\n");
-
     if (!header)
 		return;
 
@@ -130,8 +126,6 @@ void u2f_request_nfc(uint8_t * header, uint8_t * data, int datalen, CTAP_RESPONS
 
 void u2f_request(struct u2f_request_apdu* req, CTAP_RESPONSE * resp)
 {
-    printf1(TAG_GREEN, "u2f_request() called\n");
-
     uint32_t len = ((req->LC3) | ((uint32_t)req->LC2 << 8) | ((uint32_t)req->LC1 << 16));
 
 	u2f_request_ex((APDU_HEADER *)req, req->payload, len, resp);
@@ -139,8 +133,6 @@ void u2f_request(struct u2f_request_apdu* req, CTAP_RESPONSE * resp)
 
 int8_t u2f_response_writeback(const uint8_t * buf, uint16_t len)
 {
-    printf1(TAG_GREEN, "u2f_response_writeback() called\n");
-
     if ((_u2f_resp->length + len) > _u2f_resp->data_size)
     {
         printf2(TAG_ERR, "Not enough space for U2F response, writeback\n");
@@ -153,23 +145,17 @@ int8_t u2f_response_writeback(const uint8_t * buf, uint16_t len)
 
 void u2f_reset_response()
 {
-    printf1(TAG_GREEN, "u2f_reset_response() called\n");
-
     ctap_response_init(_u2f_resp);
 }
 
 void u2f_set_writeback_buffer(CTAP_RESPONSE * resp)
 {
-    printf1(TAG_GREEN, "u2f_set_writeback_buffer() called\n");
-
     _u2f_resp = resp;
 }
 
 #ifdef ENABLE_U2F
 static void dump_signature_der(uint8_t * sig)
 {
-    printf1(TAG_GREEN, "dump_signature_der() called\n");
-
     uint8_t sigder[72];
     int len;
     len = ctap_encode_der_sig(sig, sigder);
@@ -177,16 +163,12 @@ static void dump_signature_der(uint8_t * sig)
 }
 static int8_t u2f_load_key(struct u2f_key_handle * kh, uint8_t khl, uint8_t * appid)
 {
-    printf1(TAG_GREEN, "u2f_load_key() called\n");
-
     crypto_ecc256_load_key((uint8_t*)kh, khl, NULL, 0);
     return 0;
 }
 
 static void u2f_make_auth_tag(struct u2f_key_handle * kh, uint8_t * appid, uint8_t * tag)
 {
-    printf1(TAG_GREEN, "u2f_make_auth_tag() called\n");
-
     uint8_t hashbuf[32];
     crypto_sha256_hmac_init(CRYPTO_MASTER_KEY, 0, hashbuf);
     crypto_sha256_update(kh->key, U2F_KEY_HANDLE_KEY_SIZE);
@@ -197,8 +179,6 @@ static void u2f_make_auth_tag(struct u2f_key_handle * kh, uint8_t * appid, uint8
 
 int8_t u2f_new_keypair(struct u2f_key_handle * kh, uint8_t * appid, uint8_t * pubkey)
 {
-    printf1(TAG_GREEN, "u2f_new_keypair() called\n");
-
     ctap_generate_rng(kh->key, U2F_KEY_HANDLE_KEY_SIZE);
     u2f_make_auth_tag(kh, appid, kh->tag);
 
@@ -210,8 +190,6 @@ int8_t u2f_new_keypair(struct u2f_key_handle * kh, uint8_t * appid, uint8_t * pu
 // Return 1 if authenticate, 0 if not.
 int8_t u2f_authenticate_credential(struct u2f_key_handle * kh, uint8_t key_handle_len, uint8_t * appid)
 {
-    printf1(TAG_GREEN, "u2f_authenticate_credential() called\n");
-
     printf1(TAG_U2F, "checked CRED SIZE %d. (FIDO2: %d)\n", key_handle_len, sizeof(CredentialId));
     uint8_t tag[U2F_KEY_HANDLE_TAG_SIZE];
 
@@ -250,8 +228,6 @@ int8_t u2f_authenticate_credential(struct u2f_key_handle * kh, uint8_t key_handl
 
 static int16_t u2f_authenticate(struct u2f_authenticate_request * req, uint8_t control)
 {
-    printf1(TAG_GREEN, "u2f_authenticate() called\n");
-
     uint8_t up = 1;
     uint32_t count;
     uint8_t hash[32];
@@ -321,8 +297,6 @@ static int16_t u2f_authenticate(struct u2f_authenticate_request * req, uint8_t c
 
 static int16_t u2f_register(struct u2f_register_request * req)
 {
-    printf1(TAG_GREEN, "u2f_register() called\n");
-
     uint8_t i[] = {0x0,U2F_EC_FMT_UNCOMPRESSED};
     uint8_t cert[1024];
     struct u2f_key_handle key_handle;

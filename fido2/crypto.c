@@ -310,18 +310,43 @@ void crypto_ecc256_make_key_pair(uint8_t * pubkey, uint8_t * privkey)
     }
 }
 
-// point = x
+/**
+ * Calls scalar multiplication of micro-ecc library
+ *
+ * @param result Will be filled in with the result of the multiplication. Must be 64 Bytes long.
+ * @param point The point on the curve. Must be 64 Bytes long.
+ * @param scalar The scalar for the multipllication. Must be 32 Bytes long.
+ */
 void crypto_ecc256_scalar_mult(uint8_t * result, uint8_t * point, uint8_t * scalar)
 {
     printf1(TAG_GREEN, "crypto_ecc256_scalar_mult() called \n");
+
+    // printf1(TAG_GREEN, "is point x valid? result=%d\n", uECC_valid_public_key(point, _es256_curve));
+
     if (uECC_scalar_multiplication(result, point, scalar, _es256_curve) != 1)
     {
         printf1(TAG_ERR, "Error, uECC_make_key failed\n");
+        printf1(TAG_GREEN, "uECC_valid_public_key result: %d\n", uECC_scalar_multiplication(result, point, scalar, _es256_curve));
         exit(1);
     } else {
         printf1(TAG_GREEN, "Result of scalar multiplication validity: %s\n");
         dump_hex1(TAG_GREEN, result, 64);
+        printf1(TAG_GREEN, "\n");
     }
+}
+
+void crypto_ecc256_addition(uint8_t * result, uint8_t * point_one, uint8_t * point_two)
+{
+    if (uECC_addition(result, point_one, point_two, _es256_curve) != 1)
+    {
+        printf1(TAG_ERR, "Error, crypto_ecc256_addition failed\n");
+        printf1(TAG_GREEN, "crypto_ecc256_addition result: %d\n", uECC_addition(result, point_one, point_two, _es256_curve));
+        exit(1);
+    }
+}
+
+void crypto_ecc256_modular_inverse(uint8_t * result, uint8_t * r) {
+    // TODO
 }
 
 void crypto_ecc256_shared_secret(const uint8_t * pubkey, const uint8_t * privkey, uint8_t * shared_secret)
