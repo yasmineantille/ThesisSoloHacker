@@ -325,12 +325,17 @@ void crypto_ecc256_scalar_mult(uint8_t * result, uint8_t * point, uint8_t * scal
     }
 }
 
+/**
+ * Calls addition of micro-ecc library
+ *
+ * @param result Will be filled in with the result of the addition. Must be 64 Bytes long.
+ * @param point_one The first point on the curve for addition. Must be 64 Bytes long.
+ * @param point_two The second point on the curve for addition. Must be 64 Bytes long.
+ */
 void crypto_ecc256_addition(uint8_t * result, uint8_t * point_one, uint8_t * point_two)
 {
-    if (uECC_addition(result, point_one, point_two, _es256_curve) != 1)
-    {
-        printf1(TAG_ERR, "Error, crypto_ecc256_addition failed\n");
-        printf1(TAG_GREEN, "crypto_ecc256_addition result: %d\n", uECC_addition(result, point_one, point_two, _es256_curve));
+    if (uECC_addition(result, point_one, point_two, _es256_curve) != 1) {
+        printf1(TAG_ERR, "Error, crypto_ecc256_addition() failed\n");
         exit(1);
     }
 }
