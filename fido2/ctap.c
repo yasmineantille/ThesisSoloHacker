@@ -504,17 +504,13 @@ static int ctap_sec_auth_create_msk(CTAP_secure_auth * secureAuthData)
 static int secure_auth_encrypt(SecureAuthMSK * msk, SecureAuthEncrypt * enc)
 {
     // z is collection of random scalars
-    uint8_t * z;
-    z = malloc(SEC_AUTH_MSK_N*32);
+    uint8_t * z[5*SEC_AUTH_ENC_SCALAR_LEN];
 
-    uint8_t * priv_key_buffer;   // buffer for private key that can be dismissed
-    priv_key_buffer = malloc(32);
+    uint8_t * priv_key_buf[SEC_AUTH_PRIV_KEY_LEN];   // buffer for private key that can be dismissed
 
-    uint8_t * mult_buffer_first;    // buffer for scal. mult. with z
-    mult_buffer_first = malloc(64);
-
-    uint8_t * mult_buffer_second;   // buffer for scal. mult. with k
-    mult_buffer_second = malloc(64);
+    // buffers for scalar multiplication result
+    uint8_t * result1_buf[SEC_AUTH_MULT_RESULT_LEN];
+    uint8_t * result2_buf[SEC_AUTH_MULT_RESULT_LEN];
 
     uint8_t * addition_buffer;   // buffer for addition
     addition_buffer = malloc(64);
@@ -527,19 +523,18 @@ static int secure_auth_encrypt(SecureAuthMSK * msk, SecureAuthEncrypt * enc)
 
     // randomly generate message now as it's not yet passed along
     // scalar for the secp256r1 curve should be 256 bits long
-    for (int i = 0; i < SEC_AUTH_MSK_N; ++i) {
-        if (ctap_generate_rng(&z[i*32], 32) != 1) {
+    for (int i = 0; i < 5; ++i) {
+        if (ctap_generate_rng(&z[i*SEC_AUTH_ENC_SCALAR_LEN], SEC_AUTH_ENC_SCALAR_LEN) != 1) {
             printf1(TAG_ERR, "Error, rng failed\n");
             return CTAP2_ERR_PROCESSING;
         }
         printf1(TAG_GREEN, "Generated z for i=%d\n", i);
-        dump_hex1(TAG_GREEN, &z[i*32], 32);
+        dump_hex1(TAG_GREEN, &z[i*SEC_AUTH_ENC_SCALAR_LEN], SEC_AUTH_ENC_SCALAR_LEN);
         printf1(TAG_GREEN, "\n");
     }
 
-    // generate x as point on elliptic curve (public key)
-    crypto_ecc256_make_key_pair(enc->x, priv_key_buffer);
-    free(priv_key_buffer);
+    // generate x as point on elliptic curve
+    crypto_ecc256_make_key_pair(enc->x, priv_key_buf);
 //    printf1(TAG_GREEN, "Generated x: ");
 //    dump_hex1(TAG_GREEN, enc->x, sizeof enc->x);
 //    printf1(TAG_GREEN, "\n");
@@ -549,39 +544,33 @@ static int secure_auth_encrypt(SecureAuthMSK * msk, SecureAuthEncrypt * enc)
         printf1(TAG_GREEN, "encryption loop j=%d \n", j);
 
         // scalar multiplication of x with zi
-        crypto_ecc256_scalar_mult(mult_buffer_first, enc->x, &z[j * 32]);
-        // TODO: scalar mult does not result in a point on the curve
+        crypto_ecc256_scalar_mult(result1_buf, enc->x, &z[j * SEC_AUTH_ENC_SCALAR_LEN]);
         printf1(TAG_GREEN, "Result of scalar mult data with z = ");
-        dump_hex1(TAG_GREEN, mult_buffer_first, 64);
+        dump_hex1(TAG_GREEN, result1_buf, SEC_AUTH_MULT_RESULT_LEN);
 
         // scalar multiplication of x with ki
-        crypto_ecc256_scalar_mult(mult_buffer_second, enc->x, &msk->k[j * 32]);
+        crypto_ecc256_scalar_mult(result2_buf, enc->x, &msk->k[j * SEC_AUTH_ENC_SCALAR_LEN]);
         printf1(TAG_GREEN, "Result of scalar mult data with k = ");
-        dump_hex1(TAG_GREEN, mult_buffer_second, 64);
+        dump_hex1(TAG_GREEN, result2_buf, SEC_AUTH_MULT_RESULT_LEN);
 
-        // addition of two previous results
-        crypto_ecc256_addition(addition_buffer, mult_buffer_first, mult_buffer_second);
-        printf1(TAG_GREEN, "Result of addition = ");
-        dump_hex1(TAG_GREEN, addition_buffer, 64);
-
-        // TODO
-        // modular inverse of ri
-        crypto_ecc256_modular_inverse(r_buffer, &msk->r[j * 2]);
-        printf1(TAG_GREEN, "Result of mod inv = ");
-        dump_hex1(TAG_GREEN, r_buffer, 2);
-
-        // TODO
-        // scalar multiplication of result of addition and mod inv of ri
-        crypto_ecc256_scalar_mult(mult_buffer, addition_buffer, r_buffer);
-        printf1(TAG_GREEN, "Result of last scalar mult data = ");
-        dump_hex1(TAG_GREEN, mult_buffer, 64);
+//        // addition of two previous results
+//        crypto_ecc256_addition(addition_buffer, mult_buffer_first, mult_buffer_second);
+//        printf1(TAG_GREEN, "Result of addition = ");
+//        dump_hex1(TAG_GREEN, addition_buffer, 64);
+//
+//        // TODO
+//        // modular inverse of ri
+//        crypto_ecc256_modular_inverse(r_buffer, &msk->r[j * 2]);
+//        printf1(TAG_GREEN, "Result of mod inv = ");
+//        dump_hex1(TAG_GREEN, r_buffer, 2);
+//
+//        // TODO
+//        // scalar multiplication of result of addition and mod inv of ri
+//        crypto_ecc256_scalar_mult(mult_buffer, addition_buffer, r_buffer);
+//        printf1(TAG_GREEN, "Result of last scalar mult data = ");
+//        dump_hex1(TAG_GREEN, mult_buffer, 64);
     }
 
-    free(mult_buffer);
-    free(r_buffer);
-    free(addition_buffer);
-    free(mult_buffer_first);
-    free(z);
     return 1;
 }
 

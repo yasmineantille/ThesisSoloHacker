@@ -319,19 +319,9 @@ void crypto_ecc256_make_key_pair(uint8_t * pubkey, uint8_t * privkey)
  */
 void crypto_ecc256_scalar_mult(uint8_t * result, uint8_t * point, uint8_t * scalar)
 {
-    printf1(TAG_GREEN, "crypto_ecc256_scalar_mult() called \n");
-
-    // printf1(TAG_GREEN, "is point x valid? result=%d\n", uECC_valid_public_key(point, _es256_curve));
-
-    if (uECC_scalar_multiplication(result, point, scalar, _es256_curve) != 1)
-    {
-        printf1(TAG_ERR, "Error, uECC_make_key failed\n");
-        printf1(TAG_GREEN, "uECC_valid_public_key result: %d\n", uECC_scalar_multiplication(result, point, scalar, _es256_curve));
+    if (uECC_scalar_multiplication(result, point, scalar, _es256_curve) != 1) {
+        printf1(TAG_ERR, "Error, crypto_ecc256_scalar_mult() failed\n");
         exit(1);
-    } else {
-        printf1(TAG_GREEN, "Result of scalar multiplication validity: %s\n");
-        dump_hex1(TAG_GREEN, result, 64);
-        printf1(TAG_GREEN, "\n");
     }
 }
 

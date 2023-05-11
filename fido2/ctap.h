@@ -87,6 +87,11 @@
 #define SEC_AUTH_TEMPLATE_N  0x05
 #define SEC_AUTH_TEMPLATE_SIZE  8
 
+// for encryption
+#define SEC_AUTH_ENC_SCALAR_LEN     32
+#define SEC_AUTH_PRIV_KEY_LEN       32
+#define SEC_AUTH_MULT_RESULT_LEN    64
+
 // Key values for Secure Auth input
 #define EXT_SEC_AUTH_TEMPLATE   0x01
 
