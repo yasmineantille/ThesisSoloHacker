@@ -340,8 +340,17 @@ void crypto_ecc256_addition(uint8_t * result, uint8_t * point_one, uint8_t * poi
     }
 }
 
+/**
+ * Calls modular inversion of micro-ecc library
+ *
+ * @param result Will be filled in with the result of the modular inversion. Must be 32 Bytes long.
+ * @param r The random number input. Must be 32 Bytes long.
+ */
 void crypto_ecc256_modular_inverse(uint8_t * result, uint8_t * r) {
-    // TODO
+    if (uECC_calculate_mod_inv(result, r, _es256_curve) != 1) {
+        printf1(TAG_ERR, "Error, crypto_ecc256_modular_inverse() failed\n");
+        exit(1);
+    }
 }
 
 void crypto_ecc256_shared_secret(const uint8_t * pubkey, const uint8_t * privkey, uint8_t * shared_secret)
