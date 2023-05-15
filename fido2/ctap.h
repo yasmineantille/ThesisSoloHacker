@@ -81,11 +81,14 @@
 // For master secret
 #define SEC_AUTH_MSK_N          0x05
 #define SEC_AUTH_RNR_SIZE       32
-#define SEC_AUTH_RR_SIZE        2
+#define SEC_AUTH_RR_SIZE        32
 
 // for template
 #define SEC_AUTH_TEMPLATE_N  0x05
 #define SEC_AUTH_TEMPLATE_SIZE  8
+
+// For key derivation
+#define SEC_AUTH_PUB_KEY_LEN  64
 
 // for encryption
 #define SEC_AUTH_ENC_SCALAR_LEN     32
@@ -282,14 +285,20 @@ typedef struct {
 } SecureAuthMSK;
 
 typedef struct {
-    uint8_t ciphertext[SEC_AUTH_MSK_N*SEC_AUTH_TEMPLATE_SIZE];
+    uint8_t ciphertext[SEC_AUTH_MSK_N*SEC_AUTH_ENC_RESULT_LEN];
     uint8_t x[64];
 } SecureAuthEncrypt;
 
 typedef struct {
-    uint8_t template[SEC_AUTH_TEMPLATE_N*SEC_AUTH_TEMPLATE_N*SEC_AUTH_TEMPLATE_SIZE];
+    uint8_t k[SEC_AUTH_MSK_N*SEC_AUTH_PUB_KEY_LEN];
+    uint8_t y_tilde[SEC_AUTH_MSK_N*SEC_AUTH_PUB_KEY_LEN];    // TODO: Is this correct size?
+} SecureAuthKey;
+
+typedef struct {
+    uint8_t template[SEC_AUTH_TEMPLATE_N*SEC_AUTH_TEMPLATE_N*SEC_AUTH_TEMPLATE_SIZE];   // TODO: correct this
     uint8_t rid[SEC_AUTH_RID_SIZE];
     SecureAuthMSK msk;
+    SecureAuthKey key;
     SecureAuthEncrypt enc;
 } CTAP_secure_auth;
 

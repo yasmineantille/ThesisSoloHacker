@@ -322,6 +322,24 @@ void crypto_ecc256_scalar_mult(uint8_t * result, uint8_t * point, uint8_t * scal
     if (uECC_scalar_multiplication(result, point, scalar, _es256_curve) != 1) {
         printf1(TAG_ERR, "Error, crypto_ecc256_scalar_mult() failed\n");
         exit(1);
+    } else {
+        if (uECC_valid_public_key(result, _es256_curve) != 1) {
+            printf1(TAG_ERR, "Not valid public key!");
+            exit(1);
+        }
+    }
+}
+
+void crypto_ecc256_scalar_mult_with_basepoint(uint8_t * result, uint8_t * scalar)
+{
+    if (uECC_scalar_mult_with_base_point(result, scalar, _es256_curve) != 1) {
+        printf1(TAG_ERR, "Error, crypto_ecc256_scalar_mult() failed\n");
+        exit(1);
+    } else {
+        if (uECC_valid_public_key(result, _es256_curve) != 1) {
+            printf1(TAG_ERR, "Not valid public key as result!");
+            exit(1);
+        }
     }
 }
 
