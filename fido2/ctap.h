@@ -290,8 +290,8 @@ typedef struct {
 } SecureAuthEncrypt;
 
 typedef struct {
-    uint8_t k[SEC_AUTH_MSK_N*SEC_AUTH_PUB_KEY_LEN];
-    uint8_t y_tilde[SEC_AUTH_MSK_N*SEC_AUTH_PUB_KEY_LEN];    // TODO: Is this correct size?
+    uint8_t k_y[SEC_AUTH_PUB_KEY_LEN];
+    uint8_t y_tilde[SEC_AUTH_MSK_N*SEC_AUTH_PRIV_KEY_LEN];
 } SecureAuthKey;
 
 typedef struct {

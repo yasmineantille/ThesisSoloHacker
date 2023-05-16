@@ -493,47 +493,32 @@ static int ctap_sec_auth_create_msk(SecureAuthMSK * msk)
 }
 
 /**
- * To compute scalar multiplication with a private key,
- * the private key is first multiplied with a known base point on the elliptic curve.
- * The result of this scalar multiplication is the corresponding public key.
+ * Key derivation for secure auth extension
  *
- * @param msk
- * @param sa_key
- * @return
+ * @return 1 if successful, otherwise failed
  */
 static int secure_auth_key_derivation(SecureAuthMSK * msk, SecureAuthKey * sa_key)
 {
     // y is collection of random scalars
-    uint8_t * y[5*SEC_AUTH_ENC_SCALAR_LEN];
+    uint8_t y[5*SEC_AUTH_ENC_SCALAR_LEN];
 
     // randomly generate y now as it's not yet passed along
     for (int i = 0; i < 5; i++) {
-        if (ctap_generate_rng(y[i*SEC_AUTH_ENC_SCALAR_LEN], SEC_AUTH_ENC_SCALAR_LEN) != 1) {
+        if (ctap_generate_rng(&y[i*SEC_AUTH_ENC_SCALAR_LEN], SEC_AUTH_ENC_SCALAR_LEN) != 1) {
             printf1(TAG_ERR, "Error, rng failed\n");
             return CTAP2_ERR_PROCESSING;
         }
         printf1(TAG_GREEN, "Generated y for i=%d\n", i);
-        dump_hex1(TAG_GREEN, y[i*SEC_AUTH_ENC_SCALAR_LEN], SEC_AUTH_ENC_SCALAR_LEN);
+        dump_hex1(TAG_GREEN, &y[i*SEC_AUTH_ENC_SCALAR_LEN], SEC_AUTH_ENC_SCALAR_LEN);
         printf1(TAG_GREEN, "\n");
     }
 
-    for(int i = 0; i < 5; i++)
-    {
-        uint8_t* buffer_r = (uint8_t*)malloc(SEC_AUTH_PUB_KEY_LEN);
-        uint8_t* buffer_k = (uint8_t*)malloc(SEC_AUTH_PUB_KEY_LEN);
-
-        // calculate ri * yi
-        crypto_ecc256_scalar_mult_with_basepoint(buffer_r, &msk->r[i*SEC_AUTH_RR_SIZE]);
-        crypto_ecc256_scalar_mult(&sa_key->y_tilde[i*SEC_AUTH_PUB_KEY_LEN], &msk->r[i * SEC_AUTH_RR_SIZE], y[i * SEC_AUTH_ENC_SCALAR_LEN]);
-
-        // calculate ki * yi
-        crypto_ecc256_scalar_mult_with_basepoint(buffer_k, &msk->k[i*SEC_AUTH_RNR_SIZE]);
-        crypto_ecc256_scalar_mult(&sa_key->k[i*SEC_AUTH_PUB_KEY_LEN], buffer_k, y[i * SEC_AUTH_ENC_SCALAR_LEN]);
-
-        free(buffer_r);
-        free(buffer_k);
+    // calculate ri * yi
+    for(int i = 0; i < 5; i++) {
+        crypto_calculate_mod_p(&sa_key->y_tilde[i*SEC_AUTH_PRIV_KEY_LEN], &y[i * SEC_AUTH_ENC_SCALAR_LEN], &msk->r[i * SEC_AUTH_RR_SIZE]);
     }
-
+    // calculate ki * yi
+    crypto_calculate_inner_product(sa_key->k_y, msk->k, y, 5);
     return 1;
 }
 
@@ -728,6 +713,13 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
         if (ctap_sec_auth_create_msk(&ext->secure_auth.msk) != 1)
         {
             printf1(TAG_ERR,"Error, creating msk for secure auth failed\n");
+            exit(1);
+        }
+
+        // TODO: Check key derivation is only done firs time extension is called for new account
+        if(secure_auth_key_derivation(&ext->secure_auth.msk, &ext->secure_auth.key) != 1)
+        {
+            printf1(TAG_ERR,"Error, key derivation for secure auth failed\n");
             exit(1);
         }
 

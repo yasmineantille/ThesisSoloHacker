@@ -344,6 +344,39 @@ void crypto_ecc256_scalar_mult_with_basepoint(uint8_t * result, uint8_t * scalar
 }
 
 /**
+ * Calls inner product function from micro-ecc library
+ *
+ * @param result Will be filled in with the result of the inner product.
+ * The result of each individual product operation could potentially exceed the maximum value
+ * representable by that data type. That's why result needs to be uint32_t.
+ * @param k
+ * @param y
+ * @param elements
+ * @param memory_size
+ */
+void crypto_calculate_inner_product(uint8_t * result, uint8_t * k, uint8_t * y, int elements) {
+    if (uECC_inner_product(result, k, y, elements, _es256_curve) != 1) {
+        printf1(TAG_ERR, "Error, uECC_inner_product() failed\n");
+        exit(1);
+    }
+}
+
+/**
+ * Calls multiplication mod p of micro-ecc library
+ *
+ * @param result
+ * @param y
+ * @param r
+ */
+void crypto_calculate_mod_p(uint8_t * result, uint8_t * y, uint8_t * r)
+{
+    if (uECC_multiply_mod_p(result, y, r, _es256_curve) != 1) {
+        printf1(TAG_ERR, "Error, crypto_calculate_mod_p() failed\n");
+        exit(1);
+    }
+}
+
+/**
  * Calls addition of micro-ecc library
  *
  * @param result Will be filled in with the result of the addition. Must be 64 Bytes long.
