@@ -54,11 +54,56 @@ void crypto_reset_master_secret();
 void crypto_load_master_secret(uint8_t * key);
 
 // for secure auth
+
+/**
+ * Calls scalar multiplication of micro-ecc library
+ *
+ * @param result Will be filled in with the result of the multiplication. Must be 64 Bytes long.
+ * @param point The point on the curve. Must be 64 Bytes long.
+ * @param scalar The scalar for the multipllication. Must be 32 Bytes long.
+ */
 void crypto_ecc256_scalar_mult(uint8_t * result, uint8_t * point, uint8_t * scalar);
+
+/**
+ * Calls addition of micro-ecc library
+ *
+ * @param result Will be filled in with the result of the addition. Must be 64 Bytes long.
+ * @param point_one The first point on the curve for addition. Must be 64 Bytes long.
+ * @param point_two The second point on the curve for addition. Must be 64 Bytes long.
+ */
 void crypto_ecc256_addition(uint8_t * result, uint8_t * point_one, uint8_t * point_two);
+
+/**
+ * Calls modular inversion of micro-ecc library
+ *
+ * @param result Will be filled in with the result of the modular inversion. Must be 32 Bytes long.
+ * @param r The random number input. Must be 32 Bytes long.
+ */
 void crypto_ecc256_modular_inverse(uint8_t * result, uint8_t * r);
+
+// TODO: Delete
 void crypto_ecc256_scalar_mult_with_basepoint(uint8_t * result, uint8_t * scalar);
+
+/**
+ * Calls inner product function from micro-ecc library
+ *
+ * @param result Will be filled in with the result of the inner product.
+ * The result of each individual product operation could potentially exceed the maximum value
+ * representable by that data type. That's why result needs to be uint32_t.
+ * @param a First array for inner product
+ * @param b Second array for inner product
+ * @param elements  Number of elements in an array.
+ */
 void crypto_calculate_inner_product(uint8_t * result, uint8_t * a, uint8_t * b, int elements);
+
+/**
+ * Calls multiplication mod p of micro-ecc library
+ * Currently specifically used for key derivation for Secure Auth.
+ *
+ * @param result ill be filled in with the result of the calculation.
+ * @param y scalar y for multiplication
+ * @param r scalar r for multiplication
+ */
 void crypto_calculate_mod_p(uint8_t * result, uint8_t * y, uint8_t * r);
 
 #endif

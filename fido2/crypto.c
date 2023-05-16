@@ -310,13 +310,6 @@ void crypto_ecc256_make_key_pair(uint8_t * pubkey, uint8_t * privkey)
     }
 }
 
-/**
- * Calls scalar multiplication of micro-ecc library
- *
- * @param result Will be filled in with the result of the multiplication. Must be 64 Bytes long.
- * @param point The point on the curve. Must be 64 Bytes long.
- * @param scalar The scalar for the multipllication. Must be 32 Bytes long.
- */
 void crypto_ecc256_scalar_mult(uint8_t * result, uint8_t * point, uint8_t * scalar)
 {
     if (uECC_scalar_multiplication(result, point, scalar, _es256_curve) != 1) {
@@ -343,17 +336,7 @@ void crypto_ecc256_scalar_mult_with_basepoint(uint8_t * result, uint8_t * scalar
     }
 }
 
-/**
- * Calls inner product function from micro-ecc library
- *
- * @param result Will be filled in with the result of the inner product.
- * The result of each individual product operation could potentially exceed the maximum value
- * representable by that data type. That's why result needs to be uint32_t.
- * @param k
- * @param y
- * @param elements
- * @param memory_size
- */
+
 void crypto_calculate_inner_product(uint8_t * result, uint8_t * k, uint8_t * y, int elements) {
     if (uECC_inner_product(result, k, y, elements, _es256_curve) != 1) {
         printf1(TAG_ERR, "Error, uECC_inner_product() failed\n");
@@ -361,13 +344,6 @@ void crypto_calculate_inner_product(uint8_t * result, uint8_t * k, uint8_t * y, 
     }
 }
 
-/**
- * Calls multiplication mod p of micro-ecc library
- *
- * @param result
- * @param y
- * @param r
- */
 void crypto_calculate_mod_p(uint8_t * result, uint8_t * y, uint8_t * r)
 {
     if (uECC_multiply_mod_p(result, y, r, _es256_curve) != 1) {
@@ -376,13 +352,6 @@ void crypto_calculate_mod_p(uint8_t * result, uint8_t * y, uint8_t * r)
     }
 }
 
-/**
- * Calls addition of micro-ecc library
- *
- * @param result Will be filled in with the result of the addition. Must be 64 Bytes long.
- * @param point_one The first point on the curve for addition. Must be 64 Bytes long.
- * @param point_two The second point on the curve for addition. Must be 64 Bytes long.
- */
 void crypto_ecc256_addition(uint8_t * result, uint8_t * point_one, uint8_t * point_two)
 {
     if (uECC_addition(result, point_one, point_two, _es256_curve) != 1) {
@@ -391,12 +360,6 @@ void crypto_ecc256_addition(uint8_t * result, uint8_t * point_one, uint8_t * poi
     }
 }
 
-/**
- * Calls modular inversion of micro-ecc library
- *
- * @param result Will be filled in with the result of the modular inversion. Must be 32 Bytes long.
- * @param r The random number input. Must be 32 Bytes long.
- */
 void crypto_ecc256_modular_inverse(uint8_t * result, uint8_t * r) {
     if (uECC_calculate_mod_inv(result, r, _es256_curve) != 1) {
         printf1(TAG_ERR, "Error, crypto_ecc256_modular_inverse() failed\n");
