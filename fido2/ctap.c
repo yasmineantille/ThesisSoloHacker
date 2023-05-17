@@ -464,7 +464,7 @@ static int is_cred_id_matching_rk(CredentialId * credId, CTAP_residentKey * rk)
  * Uses private keys from elliptic curve key gen as random k numbers
  * @return 1 if successful, otherwise failed
  */
-static int ctap_sec_auth_create_msk(SecureAuthMSK * msk)
+static void ctap_sec_auth_create_msk(SecureAuthMSK * msk)
 {
     uint8_t * buffer[64];   // buffer for discardable public key
 
@@ -483,7 +483,6 @@ static int ctap_sec_auth_create_msk(SecureAuthMSK * msk)
 //        dump_hex1(TAG_GREEN, (uint8_t *) &msk->r[i * SEC_AUTH_MSK_R_SIZE], SEC_AUTH_MSK_R_SIZE);
 //        printf1(TAG_GREEN, "\n");
     }
-    return 1;
 }
 
 /**
@@ -491,7 +490,7 @@ static int ctap_sec_auth_create_msk(SecureAuthMSK * msk)
  *
  * @return 1 if successful, otherwise failed
  */
-static int secure_auth_key_derivation(SecureAuthMSK * msk, SecureAuthKey * sa_key)
+static void secure_auth_key_derivation(SecureAuthMSK * msk, SecureAuthKey * sa_key)
 {
     // y is collection of random scalars
     uint8_t y[5*SEC_AUTH_SCALAR_SIZE];
@@ -500,7 +499,6 @@ static int secure_auth_key_derivation(SecureAuthMSK * msk, SecureAuthKey * sa_ke
     for (int i = 0; i < 5; i++) {
         if (ctap_generate_rng(&y[i*SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE) != 1) {
             printf1(TAG_ERR, "Error, rng failed\n");
-            return CTAP2_ERR_PROCESSING;
         }
         printf1(TAG_GREEN, "Generated y for i=%d\n", i);
         dump_hex1(TAG_GREEN, &y[i*SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE);
@@ -513,7 +511,6 @@ static int secure_auth_key_derivation(SecureAuthMSK * msk, SecureAuthKey * sa_ke
     }
     // calculate ki * yi
     crypto_calculate_inner_product(sa_key->k_y, msk->k, y, 5);
-    return 1;
 }
 
 /**
@@ -526,7 +523,7 @@ static int secure_auth_key_derivation(SecureAuthMSK * msk, SecureAuthKey * sa_ke
  * @param z is message (biometric template)
  * @return 1 if successful, otherwise failed
  */
-static int secure_auth_encrypt(SecureAuthMSK * msk, SecureAuthEncrypt * enc)
+static void secure_auth_encrypt(SecureAuthMSK * msk, SecureAuthEncrypt * enc)
 {
     uint8_t z[5*SEC_AUTH_SCALAR_SIZE];   // z is collection of random scalars
     uint8_t priv_key_buf[SEC_AUTH_SCALAR_SIZE];  // buffer for private key that can be dismissed
@@ -536,7 +533,6 @@ static int secure_auth_encrypt(SecureAuthMSK * msk, SecureAuthEncrypt * enc)
     for (int i = 0; i < 5; i++) {
         if (ctap_generate_rng(&z[i*SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE) != 1) {
             printf1(TAG_ERR, "Error, rng failed\n");
-            return CTAP2_ERR_PROCESSING;
         }
         printf1(TAG_GREEN, "Generated z for i=%d\n", i);
         dump_hex1(TAG_GREEN, &z[i*SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE);
@@ -582,9 +578,6 @@ static int secure_auth_encrypt(SecureAuthMSK * msk, SecureAuthEncrypt * enc)
         free(result_addition_buf);
         free(r_mod_inv);
     }
-
-    printf1(TAG_GREEN, "reached here in code!\n");
-    return 1;
 }
 
 static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf, unsigned int * ext_encoder_buf_size)
@@ -704,24 +697,12 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
         printf1(TAG_CTAP, "Processing secure-auth extension...\r\n");
 
         // create msk
-        if (ctap_sec_auth_create_msk(&ext->secure_auth.msk) != 1)
-        {
-            printf1(TAG_ERR,"Error, creating msk for secure auth failed\n");
-            exit(1);
-        }
+        ctap_sec_auth_create_msk(&ext->secure_auth.msk);
 
         // TODO: Check key derivation is only done firs time extension is called for new account
-        if(secure_auth_key_derivation(&ext->secure_auth.msk, &ext->secure_auth.key) != 1)
-        {
-            printf1(TAG_ERR,"Error, key derivation for secure auth failed\n");
-            exit(1);
-        }
+        secure_auth_key_derivation(&ext->secure_auth.msk, &ext->secure_auth.key);
 
-        if(secure_auth_encrypt(&ext->secure_auth.msk, &ext->secure_auth.enc) != 1)
-        {
-            printf1(TAG_ERR,"Error, encryption for secure auth failed\n");
-            exit(1);
-        }
+        secure_auth_encrypt(&ext->secure_auth.msk, &ext->secure_auth.enc);
 
         // create random rid for the client
         if (ctap_generate_rng(ext->secure_auth.rid, SEC_AUTH_RID_SIZE) != 1)
