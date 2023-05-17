@@ -466,28 +466,22 @@ static int is_cred_id_matching_rk(CredentialId * credId, CTAP_residentKey * rk)
  */
 static int ctap_sec_auth_create_msk(SecureAuthMSK * msk)
 {
-    // create buffer to use for public key gen as this can be discarded after
-    uint8_t buffer[64];
+    uint8_t * buffer[64];   // buffer for discardable public key
 
-    int i;
-    for (i = 0; i < SEC_AUTH_MSK_N; ++i) {
-        // generate rand nr on elliptic curve (private key)
-        crypto_ecc256_make_key_pair(buffer, &msk->k[i*SEC_AUTH_RNR_SIZE]);
+    for (int i = 0; i < SEC_AUTH_MSK_N; i++) {
+        // generate random k_i as scalar on elliptic curve (private key)
+        crypto_ecc256_make_key_pair(buffer, &msk->k[i*SEC_AUTH_MSK_K_SIZE]);
 
-        printf1(TAG_GREEN, "Generated k: ");
-        dump_hex1(TAG_GREEN, (uint8_t *) &msk->k[i*SEC_AUTH_RNR_SIZE], SEC_AUTH_RNR_SIZE);
-        printf1(TAG_GREEN, "\n");
+//        printf1(TAG_GREEN, "Generated k: ");
+//        dump_hex1(TAG_GREEN, (uint8_t *) &msk->k[i*SEC_AUTH_MSK_K_SIZE], SEC_AUTH_MSK_K_SIZE);
+//        printf1(TAG_GREEN, "\n");
 
-        // r now also to be random number as private key
-        crypto_ecc256_make_key_pair(buffer, &msk->r[i*SEC_AUTH_RR_SIZE]);
+        // generate random r_i as scalar on elliptic curve (private key)
+        crypto_ecc256_make_key_pair(buffer, &msk->r[i * SEC_AUTH_MSK_R_SIZE]);
 
-//        if (ctap_generate_rng(&msk->r[i*SEC_AUTH_RR_SIZE], SEC_AUTH_RR_SIZE) != 1) {
-//            printf1(TAG_ERR, "Error, rng failed\n");
-//            return CTAP2_ERR_PROCESSING;
-//        }
-        printf1(TAG_GREEN, "Generated r: ");
-        dump_hex1(TAG_GREEN, (uint8_t *) &msk->r[i*SEC_AUTH_RR_SIZE], SEC_AUTH_RR_SIZE);
-        printf1(TAG_GREEN, "\n");
+//        printf1(TAG_GREEN, "Generated r: ");
+//        dump_hex1(TAG_GREEN, (uint8_t *) &msk->r[i * SEC_AUTH_MSK_R_SIZE], SEC_AUTH_MSK_R_SIZE);
+//        printf1(TAG_GREEN, "\n");
     }
     return 1;
 }
@@ -500,22 +494,22 @@ static int ctap_sec_auth_create_msk(SecureAuthMSK * msk)
 static int secure_auth_key_derivation(SecureAuthMSK * msk, SecureAuthKey * sa_key)
 {
     // y is collection of random scalars
-    uint8_t y[5*SEC_AUTH_ENC_SCALAR_LEN];
+    uint8_t y[5*SEC_AUTH_SCALAR_SIZE];
 
     // randomly generate y now as it's not yet passed along
     for (int i = 0; i < 5; i++) {
-        if (ctap_generate_rng(&y[i*SEC_AUTH_ENC_SCALAR_LEN], SEC_AUTH_ENC_SCALAR_LEN) != 1) {
+        if (ctap_generate_rng(&y[i*SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE) != 1) {
             printf1(TAG_ERR, "Error, rng failed\n");
             return CTAP2_ERR_PROCESSING;
         }
         printf1(TAG_GREEN, "Generated y for i=%d\n", i);
-        dump_hex1(TAG_GREEN, &y[i*SEC_AUTH_ENC_SCALAR_LEN], SEC_AUTH_ENC_SCALAR_LEN);
+        dump_hex1(TAG_GREEN, &y[i*SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE);
         printf1(TAG_GREEN, "\n");
     }
 
     // calculate ri * yi
     for(int i = 0; i < 5; i++) {
-        crypto_calculate_mod_p(&sa_key->y_tilde[i*SEC_AUTH_PRIV_KEY_LEN], &y[i * SEC_AUTH_ENC_SCALAR_LEN], &msk->r[i * SEC_AUTH_RR_SIZE]);
+        crypto_calculate_mod_p(&sa_key->y_tilde[i*SEC_AUTH_SCALAR_SIZE], &y[i * SEC_AUTH_SCALAR_SIZE], &msk->r[i * SEC_AUTH_MSK_R_SIZE]);
     }
     // calculate ki * yi
     crypto_calculate_inner_product(sa_key->k_y, msk->k, y, 5);
@@ -534,18 +528,18 @@ static int secure_auth_key_derivation(SecureAuthMSK * msk, SecureAuthKey * sa_ke
  */
 static int secure_auth_encrypt(SecureAuthMSK * msk, SecureAuthEncrypt * enc)
 {
-    uint8_t z[5*SEC_AUTH_ENC_SCALAR_LEN];   // z is collection of random scalars
-    uint8_t priv_key_buf[SEC_AUTH_PRIV_KEY_LEN];  // buffer for private key that can be dismissed
+    uint8_t z[5*SEC_AUTH_SCALAR_SIZE];   // z is collection of random scalars
+    uint8_t priv_key_buf[SEC_AUTH_SCALAR_SIZE];  // buffer for private key that can be dismissed
 
     // randomly generate message now as it's not yet passed along
     // scalar for the secp256r1 curve should be 256 bits long
     for (int i = 0; i < 5; i++) {
-        if (ctap_generate_rng(&z[i*SEC_AUTH_ENC_SCALAR_LEN], SEC_AUTH_ENC_SCALAR_LEN) != 1) {
+        if (ctap_generate_rng(&z[i*SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE) != 1) {
             printf1(TAG_ERR, "Error, rng failed\n");
             return CTAP2_ERR_PROCESSING;
         }
         printf1(TAG_GREEN, "Generated z for i=%d\n", i);
-        dump_hex1(TAG_GREEN, &z[i*SEC_AUTH_ENC_SCALAR_LEN], SEC_AUTH_ENC_SCALAR_LEN);
+        dump_hex1(TAG_GREEN, &z[i*SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE);
         printf1(TAG_GREEN, "\n");
     }
 
@@ -560,27 +554,27 @@ static int secure_auth_encrypt(SecureAuthMSK * msk, SecureAuthEncrypt * enc)
         printf1(TAG_GREEN, "encryption loop j=%d \n", j);
 
         // buffers for encryption intermediate results
-        uint8_t* result1_buf = (uint8_t*)malloc(SEC_AUTH_ENC_RESULT_LEN);
-        uint8_t* result2_buf = (uint8_t*)malloc(SEC_AUTH_ENC_RESULT_LEN);
-        uint8_t* result_addition_buf = (uint8_t*)malloc(SEC_AUTH_ENC_RESULT_LEN);
-        uint8_t* r_mod_inv = (uint8_t*)malloc(SEC_AUTH_RR_SIZE);
+        uint8_t* result1_buf = (uint8_t*)malloc(SEC_AUTH_POINT_SIZE);
+        uint8_t* result2_buf = (uint8_t*)malloc(SEC_AUTH_POINT_SIZE);
+        uint8_t* result_addition_buf = (uint8_t*)malloc(SEC_AUTH_POINT_SIZE);
+        uint8_t* r_mod_inv = (uint8_t*)malloc(SEC_AUTH_MSK_R_SIZE);
 
         // scalar multiplication of x with zi
-        crypto_ecc256_scalar_mult(result1_buf, enc->x, &z[j * SEC_AUTH_ENC_SCALAR_LEN]);
+        crypto_ecc256_scalar_mult(result1_buf, enc->x, &z[j * SEC_AUTH_SCALAR_SIZE]);
 
         // scalar multiplication of x with ki
-        crypto_ecc256_scalar_mult(result2_buf, enc->x, &msk->k[j * SEC_AUTH_ENC_SCALAR_LEN]);
+        crypto_ecc256_scalar_mult(result2_buf, enc->x, &msk->k[j * SEC_AUTH_MSK_K_SIZE]);
 
         // addition of two previous results
         crypto_ecc256_addition(result_addition_buf, result1_buf, result2_buf);
 
         // modular inverse of ri
-        crypto_ecc256_modular_inverse(r_mod_inv, &msk->r[j * SEC_AUTH_RR_SIZE]);
+        crypto_ecc256_modular_inverse(r_mod_inv, &msk->r[j * SEC_AUTH_MSK_R_SIZE]);
 
         // scalar multiplication of result of addition and mod inv of ri
-        crypto_ecc256_scalar_mult(&enc->ciphertext[j*SEC_AUTH_ENC_RESULT_LEN], result_addition_buf, r_mod_inv);
+        crypto_ecc256_scalar_mult(&enc->ciphertext[j*SEC_AUTH_POINT_SIZE], result_addition_buf, r_mod_inv);
         printf1(TAG_GREEN, "Result of encryption: ");
-        dump_hex1(TAG_GREEN, &enc->ciphertext[j*SEC_AUTH_ENC_RESULT_LEN], SEC_AUTH_ENC_RESULT_LEN);
+        dump_hex1(TAG_GREEN, &enc->ciphertext[j*SEC_AUTH_POINT_SIZE], SEC_AUTH_POINT_SIZE);
         printf1(TAG_GREEN, "\n");
 
         free(result1_buf);

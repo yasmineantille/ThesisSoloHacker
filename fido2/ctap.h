@@ -78,22 +78,18 @@
 #define EXT_SEC_AUTH_PARSED     0x01
 #define SEC_AUTH_RID_SIZE       32
 
+#define SEC_AUTH_POINT_SIZE     64
+#define SEC_AUTH_SCALAR_SIZE    32
+
 // For master secret
 #define SEC_AUTH_MSK_N          0x05
-#define SEC_AUTH_RNR_SIZE       32
-#define SEC_AUTH_RR_SIZE        32
+#define SEC_AUTH_MSK_K_SIZE     32
+#define SEC_AUTH_MSK_R_SIZE     32
 
 // for template
 #define SEC_AUTH_TEMPLATE_N  0x05
 #define SEC_AUTH_TEMPLATE_SIZE  8
 
-// For key derivation
-#define SEC_AUTH_PUB_KEY_LEN  64
-
-// for encryption
-#define SEC_AUTH_ENC_SCALAR_LEN     32
-#define SEC_AUTH_PRIV_KEY_LEN       32
-#define SEC_AUTH_ENC_RESULT_LEN     64
 
 // Key values for Secure Auth input
 #define EXT_SEC_AUTH_TEMPLATE   0x01
@@ -280,18 +276,18 @@ typedef struct
 // master secret of sec auth setup
 // msk = ([k1, ..., kn], [r1, ..., rn])
 typedef struct {
-    uint8_t k[SEC_AUTH_MSK_N*SEC_AUTH_RNR_SIZE];
-    uint8_t r[SEC_AUTH_MSK_N*SEC_AUTH_RR_SIZE];
+    uint8_t k[SEC_AUTH_MSK_N * SEC_AUTH_MSK_K_SIZE];
+    uint8_t r[SEC_AUTH_MSK_N * SEC_AUTH_MSK_R_SIZE];
 } SecureAuthMSK;
 
 typedef struct {
-    uint8_t ciphertext[SEC_AUTH_MSK_N*SEC_AUTH_ENC_RESULT_LEN];
+    uint8_t ciphertext[SEC_AUTH_MSK_N*SEC_AUTH_POINT_SIZE];
     uint8_t x[64];
 } SecureAuthEncrypt;
 
 typedef struct {
-    uint8_t k_y[SEC_AUTH_PUB_KEY_LEN];
-    uint8_t y_tilde[SEC_AUTH_MSK_N*SEC_AUTH_PRIV_KEY_LEN];
+    uint8_t k_y[SEC_AUTH_SCALAR_SIZE];
+    uint8_t y_tilde[SEC_AUTH_MSK_N*SEC_AUTH_SCALAR_SIZE];
 } SecureAuthKey;
 
 typedef struct {
