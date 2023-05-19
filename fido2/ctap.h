@@ -90,7 +90,7 @@
 
 // for template
 #define SEC_AUTH_TEMPLATE_N  0x05
-#define SEC_AUTH_TEMPLATE_SIZE  8
+#define SEC_AUTH_TEMPLATE_SIZE  32
 
 
 // Key values for Secure Auth input

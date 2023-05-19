@@ -556,50 +556,52 @@ uint8_t parse_options(CborValue * val, uint8_t * rk, uint8_t * uv, uint8_t * up)
     return 0;
 }
 
-// TODO parse template here and save locally
-uint8_t parse_biometric_template(CborValue * it, uint8_t * template)
+/**
+ * Parses byte string of biometric template saves it to CTAP_secure_auth template
+ *
+ * @return 0 if successful, error otherwise
+ */
+uint8_t parse_biometric_template(CborValue * it, CTAP_secure_auth * sa)
 {
     CborValue arr;
     size_t arr_length;
     int ret;
     unsigned int i;
 
-    printf1(TAG_ERR,"Received secure auth type: %s\n", cbor_value_get_type_string(&it));
+    printf1(TAG_GREEN,"Received secure auth type: %s\n", cbor_value_get_type_string(it));
 
-//    if (cbor_value_get_type(&it) != CborArrayType)
-//    {
-//        printf1(TAG_ERR,"Error, expecting CborArrayType for secure auth map key, got %s\n", cbor_value_get_type_string(&it));
-//        return CTAP2_ERR_INVALID_CBOR_TYPE;
-//    }
-//
-//    ret = cbor_value_enter_container(it,&arr);
-//    check_ret(ret);
-//
-//    ret = cbor_value_get_array_length(&arr, &arr_length);
-//    check_ret(ret);
-//    printf1(TAG_PARSE, "Biometric template array has %u elements\n", arr_length);
-//
-//    for (i = 0; i < arr_length; i++) {
-//        printf1(TAG_PARSE, "for loop through template with i = %d \n", i);
-//
-//        if (cbor_value_get_type(&arr) != CborIntegerType)
-//        {
-//            printf1(TAG_ERR,"Error, expecting CborIntegerType for secure auth map key, got %s\n", cbor_value_get_type_string(&arr));
-//            return CTAP2_ERR_INVALID_CBOR_TYPE;
-//        }
-//
-//        uint8_t temp;
-//        ret = cbor_value_get_int64(&arr, &temp);
-//        check_ret(ret);
-//        printf1(TAG_GREEN, "Template integer temp variable: %u \n", temp);
-//
-//        memmove(&template[i * SEC_AUTH_TEMPLATE_SIZE], &temp, sizeof temp);
-//
-//        printf1(TAG_GREEN, "Template integer in secure auth struct: %u\n", template[i * SEC_AUTH_TEMPLATE_SIZE]);
-//
-//        ret = cbor_value_advance(&arr);
-//        check_ret(ret);
-//    }
+    if (cbor_value_get_type(it) != CborArrayType)
+    {
+        printf1(TAG_ERR,"Error, expecting CborArrayType for secure auth biometric template, got %s\n", cbor_value_get_type_string(it));
+        return CTAP2_ERR_INVALID_CBOR_TYPE;
+    }
+
+    ret = cbor_value_enter_container(it,&arr);
+    check_ret(ret);
+
+    ret = cbor_value_get_array_length(it, &arr_length);
+    check_ret(ret);
+
+    printf1(TAG_PARSE, "Biometric template array has %u elements\n", arr_length);
+
+    for (i = 0; i < arr_length; i++) {
+        if (cbor_value_get_type(&arr) != CborByteStringType)
+        {
+            printf1(TAG_ERR,"Error, expecting CborIntegerType for secure auth biometrics, got %s\n", cbor_value_get_type_string(&arr));
+            return CTAP2_ERR_INVALID_CBOR_TYPE;
+        }
+
+        size_t sz = SEC_AUTH_TEMPLATE_SIZE;
+        ret = cbor_value_copy_byte_string(&arr, &sa->template[i*SEC_AUTH_TEMPLATE_SIZE], &sz, NULL);
+        check_ret(ret);
+
+        printf1(TAG_GREEN, "Biometric template at position i = %d : ", i);
+        dump_hex1(TAG_GREEN, &sa->template[i * SEC_AUTH_TEMPLATE_SIZE], SEC_AUTH_TEMPLATE_SIZE);
+        printf("\n");
+
+        ret = cbor_value_advance(&arr);
+        check_ret(ret);
+    }
     return 0;
 }
 
@@ -671,8 +673,7 @@ uint8_t ctap_parse_secure_auth(CborValue * val, CTAP_secure_auth * sa, uint8_t *
                 break;
             case EXT_SEC_AUTH_TEMPLATE:
                 printf1(TAG_PARSE, "EXT_SEC_AUTH_TEMPLATE\r\n");
-                // TODO parse biometrics properly
-                ret = parse_biometric_template(&map, &sa->template);
+                ret = parse_biometric_template(&map, sa);
                 check_ret(ret);
                 parsed_count++;
                 break;
