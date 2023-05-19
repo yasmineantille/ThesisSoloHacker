@@ -500,17 +500,21 @@ static void secure_auth_key_derivation(SecureAuthMSK * msk, SecureAuthKey * sa_k
         if (ctap_generate_rng(&y[i*SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE) != 1) {
             printf1(TAG_ERR, "Error, rng failed\n");
         }
-        printf1(TAG_GREEN, "Generated y for i=%d\n", i);
-        dump_hex1(TAG_GREEN, &y[i*SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE);
-        printf1(TAG_GREEN, "\n");
+//        printf1(TAG_GREEN, "Generated y for i=%d\n", i);
+//        dump_hex1(TAG_GREEN, &y[i*SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE);
+//        printf1(TAG_GREEN, "\n");
     }
 
     // calculate ri * yi
     for(int i = 0; i < 5; i++) {
-        crypto_calculate_mod_p(&sa_key->y_tilde[i*SEC_AUTH_SCALAR_SIZE], &y[i * SEC_AUTH_SCALAR_SIZE], &msk->r[i * SEC_AUTH_MSK_R_SIZE]);
+        crypto_calculate_mod_p(&sa_key->y_bar[i * SEC_AUTH_SCALAR_SIZE], &y[i * SEC_AUTH_SCALAR_SIZE], &msk->r[i * SEC_AUTH_MSK_R_SIZE]);
     }
     // calculate ki * yi
     crypto_calculate_inner_product(sa_key->k_y, msk->k, y, 5);
+
+//    printf1(TAG_GREEN, "Resulting k_y value: ");
+//    dump_hex1(TAG_GREEN, sa_key->k_y, SEC_AUTH_SCALAR_SIZE);
+//    printf1(TAG_GREEN, "\n");
 }
 
 /**
@@ -534,9 +538,9 @@ static void secure_auth_encrypt(SecureAuthMSK * msk, SecureAuthEncrypt * enc)
         if (ctap_generate_rng(&z[i*SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE) != 1) {
             printf1(TAG_ERR, "Error, rng failed\n");
         }
-        printf1(TAG_GREEN, "Generated z for i=%d\n", i);
-        dump_hex1(TAG_GREEN, &z[i*SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE);
-        printf1(TAG_GREEN, "\n");
+//        printf1(TAG_GREEN, "Generated z for i=%d\n", i);
+//        dump_hex1(TAG_GREEN, &z[i*SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE);
+//        printf1(TAG_GREEN, "\n");
     }
 
     // generate x as point on elliptic curve
@@ -569,9 +573,9 @@ static void secure_auth_encrypt(SecureAuthMSK * msk, SecureAuthEncrypt * enc)
 
         // scalar multiplication of result of addition and mod inv of ri
         crypto_ecc256_scalar_mult(&enc->ciphertext[j*SEC_AUTH_POINT_SIZE], result_addition_buf, r_mod_inv);
-        printf1(TAG_GREEN, "Result of encryption: ");
-        dump_hex1(TAG_GREEN, &enc->ciphertext[j*SEC_AUTH_POINT_SIZE], SEC_AUTH_POINT_SIZE);
-        printf1(TAG_GREEN, "\n");
+//        printf1(TAG_GREEN, "Result of encryption: ");
+//        dump_hex1(TAG_GREEN, &enc->ciphertext[j*SEC_AUTH_POINT_SIZE], SEC_AUTH_POINT_SIZE);
+//        printf1(TAG_GREEN, "\n");
 
         free(result1_buf);
         free(result2_buf);
@@ -598,10 +602,7 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
 
     /// for secure auth extension
     uint8_t sec_auth_is_valid = 0;
-    // TODO: is buf really necessary?
-    uint8_t data_buf[64];  // TODO: what size should this be?
-    CTAP_secure_auth * sec_auth_data = (CTAP_secure_auth *)data_buf;
-    // uint8_t secure_auth_output[64]; // TODO: what size should this be?
+    CborEncoder sec_auth_output_map;
 
     if (ext->hmac_secret_present == EXT_HMAC_SECRET_PARSED)
     {
@@ -696,25 +697,29 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
     {
         printf1(TAG_CTAP, "Processing secure-auth extension...\r\n");
 
-        // create msk
-        ctap_sec_auth_create_msk(&ext->secure_auth.msk);
-
-        // TODO: Check key derivation is only done firs time extension is called for new account
-        secure_auth_key_derivation(&ext->secure_auth.msk, &ext->secure_auth.key);
-
-        secure_auth_encrypt(&ext->secure_auth.msk, &ext->secure_auth.enc);
-
-        // create random rid for the client
-        if (ctap_generate_rng(ext->secure_auth.rid, SEC_AUTH_RID_SIZE) != 1)
+        if (ext->sec_auth_process == EXT_SEC_AUTH_REG_REQUEST)
         {
-            printf1(TAG_ERR,"Error, rng failed\n");
-            exit(1);
+            // create msk
+            ctap_sec_auth_create_msk(&ext->secure_auth.msk);
+
+            // create key
+            secure_auth_key_derivation(&ext->secure_auth.msk, &ext->secure_auth.key);
+
+            // create random id
+            if (ctap_generate_rng(ext->secure_auth.rid, SEC_AUTH_RID_SIZE) != 1)
+            {
+                printf1(TAG_ERR,"Error, rng failed\n");
+                exit(1);
+            }
+//            printf1(TAG_GREEN, "Generated rid: ");
+//            dump_hex1(TAG_GREEN, ext->secure_auth.rid, SEC_AUTH_RID_SIZE);
         }
 
-        // TODO: If not necessary to have temp variable just directly save to ext variable
-        printf1(TAG_GREEN, "Generated rid: ");
-        dump_hex1(TAG_GREEN, ext->secure_auth.rid, sizeof sec_auth_data->rid);
-        //memmove(ext->secure_auth.rid, sec_auth_data->rid, sizeof sec_auth_data->rid);
+        if (ext->sec_auth_process == EXT_SEC_AUTH_AUTH_REQUEST)
+        {
+            // encryption
+            secure_auth_encrypt(&ext->secure_auth.msk, &ext->secure_auth.enc);
+        }
 
         // TODO: add to output variable
 
@@ -782,9 +787,49 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
                 {
                     ret = cbor_encode_text_stringz(&extension_output_map, "secure-auth");
                     check_ret(ret);
-                    // Return rid
-                    ret = cbor_encode_byte_string(&extension_output_map, ext->secure_auth.rid, sizeof ext->secure_auth.rid);
-                    check_ret(ret);
+
+                    if (ext->sec_auth_process == EXT_SEC_AUTH_REG_REQUEST)
+                    {
+                        ret = cbor_encoder_create_map(&extension_output_map, &sec_auth_output_map, 3);
+                        check_ret(ret);
+
+                        ret = cbor_encode_text_stringz(&sec_auth_output_map, "rid");
+                        check_ret(ret);
+
+                        ret = cbor_encode_byte_string(&sec_auth_output_map, ext->secure_auth.rid, SEC_AUTH_RID_SIZE);
+                        check_ret(ret);
+
+                        ret = cbor_encode_text_stringz(&sec_auth_output_map, "key");
+                        check_ret(ret);
+
+                        ret = cbor_encode_byte_string(&sec_auth_output_map, ext->secure_auth.key.k_y, SEC_AUTH_SCALAR_SIZE);
+                        check_ret(ret);
+
+                        ret = cbor_encode_text_stringz(&sec_auth_output_map, "key_double");
+                        check_ret(ret);
+
+                        ret = cbor_encode_byte_string(&sec_auth_output_map, ext->secure_auth.key.k_y, SEC_AUTH_SCALAR_SIZE);
+                        check_ret(ret);
+
+//                        ret = cbor_encode_text_stringz(&sec_auth_output_map, "y_bar");
+//                        check_ret(ret);
+//
+//                        for (int i = 0; i < 5; i++) {
+//                            ret = cbor_encode_byte_string(&sec_auth_output_map, &ext->secure_auth.key.y_bar[i*SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE);
+//                            check_ret(ret);
+//                        }
+
+//                        ret = cbor_encode_byte_string(&sec_auth_output_map, ext->secure_auth.key.y_bar, SEC_AUTH_MSK_N * 64);
+//                        check_ret(ret);
+
+                        ret = cbor_encoder_close_container(&extension_output_map, &sec_auth_output_map);
+                        check_ret(ret);
+                    }
+                    if (ext->sec_auth_process == EXT_SEC_AUTH_AUTH_REQUEST)
+                    {
+                        // TODO do return for auth request
+                    }
+
                 }
             }
 

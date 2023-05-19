@@ -591,9 +591,9 @@ uint8_t parse_biometric_template(CborValue * it, CTAP_secure_auth * sa)
         ret = cbor_value_copy_byte_string(&arr, &sa->template[i*SEC_AUTH_TEMPLATE_SIZE], &sz, NULL);
         check_ret(ret);
 
-        printf1(TAG_GREEN, "Parsed biometric template at position i = %d : ", i);
-        dump_hex1(TAG_GREEN, &sa->template[i * SEC_AUTH_TEMPLATE_SIZE], SEC_AUTH_TEMPLATE_SIZE);
-        printf("\n");
+//        printf1(TAG_GREEN, "Parsed biometric template at position i = %d : ", i);
+//        dump_hex1(TAG_GREEN, &sa->template[i * SEC_AUTH_TEMPLATE_SIZE], SEC_AUTH_TEMPLATE_SIZE);
+//        printf("\n");
 
         ret = cbor_value_advance(&arr);
         check_ret(ret);

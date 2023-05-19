@@ -290,7 +290,7 @@ typedef struct {
 
 typedef struct {
     uint8_t k_y[SEC_AUTH_SCALAR_SIZE];
-    uint8_t y_tilde[SEC_AUTH_MSK_N*SEC_AUTH_SCALAR_SIZE];
+    uint8_t y_bar[SEC_AUTH_MSK_N * SEC_AUTH_SCALAR_SIZE];
 } SecureAuthKey;
 
 typedef struct {
