@@ -75,9 +75,11 @@
 #define EXT_HMAC_SECRET_PARSED      0x02
 
 // For Secure Auth Extension
-#define EXT_SEC_AUTH_PARSED     0x01
-#define SEC_AUTH_RID_SIZE       32
+#define EXT_SEC_AUTH_PARSED         0x01
+#define EXT_SEC_AUTH_REG_REQUEST    0x01
+#define EXT_SEC_AUTH_AUTH_REQUEST   0x02
 
+#define SEC_AUTH_RID_SIZE       32
 #define SEC_AUTH_POINT_SIZE     64
 #define SEC_AUTH_SCALAR_SIZE    32
 
@@ -92,7 +94,8 @@
 
 
 // Key values for Secure Auth input
-#define EXT_SEC_AUTH_TEMPLATE   0x01
+#define EXT_SEC_AUTH_PROCESS    0x01
+#define EXT_SEC_AUTH_TEMPLATE   0x02
 
 #define EXT_CRED_PROTECT_INVALID                0x00
 #define EXT_CRED_PROTECT_OPTIONAL               0x01
@@ -311,6 +314,7 @@ typedef struct
     uint8_t greeter_response[32];
 
     uint8_t sec_auth_present;
+    uint8_t sec_auth_process;
     uint8_t sec_auth_enrollment;
     CTAP_secure_auth secure_auth;
 } CTAP_extensions;

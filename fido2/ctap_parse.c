@@ -606,7 +606,7 @@ uint8_t parse_biometric_template(CborValue * it, uint8_t * template)
 /**
  * Parsing secure auth extension input
  */
-uint8_t ctap_parse_secure_auth(CborValue * val, CTAP_secure_auth * sa)
+uint8_t ctap_parse_secure_auth(CborValue * val, CTAP_secure_auth * sa, uint8_t * sa_process)
 {
     CborValue map;
     size_t map_length;
@@ -614,8 +614,7 @@ uint8_t ctap_parse_secure_auth(CborValue * val, CTAP_secure_auth * sa)
     int key;
     int ret;
     unsigned int i;
-
-    printf1(TAG_ERR,"ctap_parse_secure_auth() called\n");
+    char sec_auth_process[4];
 
     if (cbor_value_get_type(val) != CborMapType)
     {
@@ -641,26 +640,49 @@ uint8_t ctap_parse_secure_auth(CborValue * val, CTAP_secure_auth * sa)
         ret = cbor_value_advance(&map);
         check_ret(ret);
 
-        if (key == EXT_SEC_AUTH_TEMPLATE)
-        {
-            printf1(TAG_PARSE, "EXT_SEC_AUTH_TEMPLATE\r\n");
-            ret = parse_biometric_template(&map, &sa->template);
-            check_ret(ret);
-            parsed_count++;
+        switch(key) {
+            case EXT_SEC_AUTH_PROCESS:
+                /// Parse sec auth process request
+                printf1(TAG_PARSE, "EXT_SEC_AUTH_PROCESS\r\n");
+
+                if (cbor_value_get_type(&map) != CborTextStringType)
+                {
+                    printf2(TAG_ERR,"Error, expecting text string type for sec auth process, got %s\n", cbor_value_get_type_string(&map));
+                    return CTAP2_ERR_INVALID_CBOR_TYPE;
+                }
+
+                size_t sz = sizeof(sec_auth_process);
+                ret = cbor_value_copy_text_string(&map, sec_auth_process, &sz, NULL);
+                if (ret == CborErrorOutOfMemory)
+                {
+                    printf2(TAG_ERR,"Error, secure auth process request is too large\n");
+                    return CTAP2_ERR_LIMIT_EXCEEDED;
+                }
+                check_ret(ret);
+
+                if (strcmp(sec_auth_process, "REG") == 0) {
+                    *sa_process = EXT_SEC_AUTH_REG_REQUEST;
+                } else if (strcmp(sec_auth_process, "AUTH") == 0) {
+                    *sa_process = EXT_SEC_AUTH_AUTH_REQUEST;
+                } else {
+                    printf1(TAG_ERR, "Not a valid Secure Auth Request received. Expected 'REG' or 'AUTH' but got %s.\r\n", sec_auth_process);
+                }
+                parsed_count++;
+                break;
+            case EXT_SEC_AUTH_TEMPLATE:
+                printf1(TAG_PARSE, "EXT_SEC_AUTH_TEMPLATE\r\n");
+                // TODO parse biometrics properly
+                ret = parse_biometric_template(&map, &sa->template);
+                check_ret(ret);
+                parsed_count++;
+                break;
         }
-//        switch(key) {
-//            case EXT_SEC_AUTH_TEMPLATE:
-//                printf1(TAG_PARSE, "EXT_SEC_AUTH_TEMPLATE\r\n");
-//                //ret = parse_biometric_template(&map, &sa->template);
-//                check_ret(ret);
-//                parsed_count++;
-//        }
-//
+
         ret = cbor_value_advance(&map);
         check_ret(ret);
     }
 
-    if (parsed_count != 1)
+    if (parsed_count != 2)
     {
         printf1(TAG_ERR, "ctap_parse_secure_auth missing parameter.  Got %d.\r\n", parsed_count);
         return CTAP2_ERR_MISSING_PARAMETER;
@@ -873,11 +895,11 @@ uint8_t ctap_parse_extensions(CborValue * val, CTAP_extensions * ext)
             printf1(TAG_PARSE, "Received Secure Auth request\r\n");
             if (cbor_value_get_type(&map) == CborMapType)
             {
-                ret = ctap_parse_secure_auth(&map, &ext->secure_auth);
+                ret = ctap_parse_secure_auth(&map, &ext->secure_auth, &ext->sec_auth_process);
                 check_ret(ret);
-                // TODO: will ext overwrite other extensions if multiple are called?
+
                 ext->sec_auth_present = EXT_SEC_AUTH_PARSED;
-                printf1(TAG_CTAP, "parsed sec_auth_present request\r\n");
+                printf1(TAG_GREEN, "parsed sec_auth_present request\r\n");
             }
             else
             {
