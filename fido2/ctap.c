@@ -508,13 +508,19 @@ static void secure_auth_key_derivation(SecureAuthMSK * msk, SecureAuthKey * sa_k
     // calculate ri * yi
     for(int i = 0; i < 5; i++) {
         crypto_calculate_mod_p(&sa_key->y_bar[i * SEC_AUTH_SCALAR_SIZE], &y[i * SEC_AUTH_SCALAR_SIZE], &msk->r[i * SEC_AUTH_MSK_R_SIZE]);
+        printf1(TAG_GREEN, "Resulting y_bar value: ");
+        dump_hex1(TAG_GREEN, &sa_key->y_bar[i * SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE);
+        printf1(TAG_GREEN, "\n");
+        memmove(&getAssertionState.secretKey.y_bar[i * SEC_AUTH_SCALAR_SIZE], &sa_key->y_bar[i * SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE);
     }
     // calculate ki * yi
     crypto_calculate_inner_product(sa_key->k_y, msk->k, y, 5);
 
-//    printf1(TAG_GREEN, "Resulting k_y value: ");
-//    dump_hex1(TAG_GREEN, sa_key->k_y, SEC_AUTH_SCALAR_SIZE);
-//    printf1(TAG_GREEN, "\n");
+    printf1(TAG_GREEN, "Resulting k_y value: ");
+    dump_hex1(TAG_GREEN, sa_key->k_y, SEC_AUTH_SCALAR_SIZE);
+    printf1(TAG_GREEN, "\n");
+
+    memmove(getAssertionState.secretKey.k_y, sa_key->k_y, SEC_AUTH_SCALAR_SIZE);
 }
 
 /**
@@ -721,8 +727,6 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
             // encryption
             secure_auth_encrypt(&ext->secure_auth.msk, &ext->secure_auth.enc);
         }
-
-        // TODO: add to output variable
 
         extensions_used += 1;
         sec_auth_is_valid = 1;
@@ -1947,10 +1951,22 @@ uint8_t ctap_get_secret_output(CborEncoder * encoder, CTAP_getSecret * GS, int m
     ret = cbor_encoder_create_map(encoder, &map, map_size);
     check_ret(ret);
 
-    ret = cbor_encode_text_stringz(&map, "rid");
+//    ret = cbor_encode_text_stringz(&map, "rid");
+//    check_ret(ret);
+//
+//    ret = cbor_encode_byte_string(&map, GS->rid, SEC_AUTH_RID_SIZE);
+//    check_ret(ret);
+
+    ret = cbor_encode_text_stringz(&map, "secret_key_k");
     check_ret(ret);
 
-    ret = cbor_encode_byte_string(&map, GS->rid, SEC_AUTH_RID_SIZE);
+    ret = cbor_encode_byte_string(&map, getAssertionState.secretKey.k_y, SEC_AUTH_SCALAR_SIZE);
+    check_ret(ret);
+
+    ret = cbor_encode_text_stringz(&map, "secret_key_y");
+    check_ret(ret);
+
+    ret = cbor_encode_byte_string(&map, getAssertionState.secretKey.y_bar, SEC_AUTH_MSK_N * SEC_AUTH_SCALAR_SIZE);
     check_ret(ret);
 
     ret = cbor_encoder_close_container(encoder, &map);
@@ -2016,7 +2032,8 @@ uint8_t ctap_secure_auth_get_secret(CborEncoder * encoder, uint8_t * request, in
     if (count > 0)
     {
         // prepare output
-        ret = ctap_get_secret_output(encoder, &GS, count);
+        // count = 2 because k_y and y_bar will be returned, therefore a total of 2 items
+        ret = ctap_get_secret_output(encoder, &GS, 2);
         check_ret(ret);
     }
     return 0;
