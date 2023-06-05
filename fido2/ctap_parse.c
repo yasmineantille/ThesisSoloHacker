@@ -371,6 +371,7 @@ uint8_t parse_verify_exclude_list(CborValue * val)
 
 uint8_t parse_rp_id(struct rpId * rp, CborValue * val)
 {
+    printf1(TAG_GREEN, "parse_rp_id() called\n");
     size_t sz = DOMAIN_NAME_MAX_SIZE;
     if (cbor_value_get_type(val) != CborTextStringType)
     {
@@ -1365,6 +1366,8 @@ uint8_t ctap_parse_cred_mgmt(CTAP_credMgmt * CM, uint8_t * request, int length)
 
 uint8_t ctap_parse_get_assertion(CTAP_getAssertion * GA, uint8_t * request, int length)
 {
+    printf1(TAG_GREEN, "ctap_parse_get_assertion() called \n");
+
     int ret;
     unsigned int i;
     int key;
@@ -1426,6 +1429,7 @@ uint8_t ctap_parse_get_assertion(CTAP_getAssertion * GA, uint8_t * request, int 
 
                 ret = parse_rp_id(&GA->rp, &map);
 
+                printf1(TAG_GREEN,"  PARSED RP_ID: %s\n", GA->rp.id);
                 printf1(TAG_GA,"  ID: %s\n", GA->rp.id);
                 break;
             case GA_allowList:
@@ -1744,5 +1748,75 @@ uint8_t ctap_parse_client_pin(CTAP_clientPin * CP, uint8_t * request, int length
     }
 
 
+    return 0;
+}
+
+uint8_t ctap_parse_sec_auth_get_secret(CTAP_getSecret * GS, uint8_t * request, int length)
+{
+    int ret;
+    unsigned int i;
+    int key;
+    size_t map_length;
+    CborParser parser;
+    CborValue it, map;
+
+    memset(GS, 0, sizeof(CTAP_getSecret));
+    ret = cbor_parser_init(request, length, CborValidateCanonicalFormat, &parser, &it);
+    check_ret(ret);
+
+    CborType type = cbor_value_get_type(&it);
+    if (type != CborMapType)
+    {
+        printf1(TAG_ERR,"Error, expecting cbor map\n");
+        return CTAP2_ERR_INVALID_CBOR_TYPE;
+    }
+
+    ret = cbor_value_enter_container(&it,&map);
+    check_ret(ret);
+
+    ret = cbor_value_get_map_length(&it, &map_length);
+    check_ret(ret);
+
+    printf1(TAG_PARSE, "GS map has %d elements\n", map_length);
+
+    for (i = 0; i < map_length; i++)
+    {
+        if (cbor_value_get_type(&map) != CborIntegerType)
+        {
+            printf1(TAG_ERR,"Error, expecting int for map key\n");
+            return CTAP2_ERR_INVALID_CBOR_TYPE;
+        }
+        ret = cbor_value_get_int(&map, &key);
+        check_ret(ret);
+
+        ret = cbor_value_advance(&map);
+        check_ret(ret);
+
+        switch(key)
+        {
+            case SA_rpId:
+                printf1(TAG_GREEN,"SA_rpId\n");
+
+                ret = parse_rp_id(&GS->rp, &map);
+                if (ret != 0)
+                {
+                    return ret;
+                }
+                printf1(TAG_GREEN,"PARSED RP_ID: %s\n", GS->rp.id);
+                break;
+            case SA_rid:
+                printf1(TAG_GREEN,"SA_rid\n");
+
+                ret = parse_fixed_byte_string(&map, GS->rid, SEC_AUTH_RID_SIZE);
+                check_retr(ret);
+
+                printf1(TAG_GREEN, "Parsed received rid : ");
+                dump_hex1(TAG_GREEN, GS->rid, SEC_AUTH_RID_SIZE);
+                printf1(TAG_GREEN, "\n");
+                break;
+        }
+        ret = cbor_value_advance(&map);
+        check_ret(ret);
+    }
     return 0;
 }

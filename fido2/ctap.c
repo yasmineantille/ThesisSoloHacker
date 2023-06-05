@@ -711,8 +711,9 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
                 printf1(TAG_ERR,"Error, rng failed\n");
                 exit(1);
             }
-//            printf1(TAG_GREEN, "Generated rid: ");
-//            dump_hex1(TAG_GREEN, ext->secure_auth.rid, SEC_AUTH_RID_SIZE);
+            printf1(TAG_GREEN, "SECURE AUTH: Generated rid: ");
+            dump_hex1(TAG_GREEN, ext->secure_auth.rid, SEC_AUTH_RID_SIZE);
+            printf1(TAG_GREEN, "\n");
         }
 
         if (ext->sec_auth_process == EXT_SEC_AUTH_AUTH_REQUEST)
@@ -790,7 +791,7 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
 
                     if (ext->sec_auth_process == EXT_SEC_AUTH_REG_REQUEST)
                     {
-                        ret = cbor_encoder_create_map(&extension_output_map, &sec_auth_output_map, 3);
+                        ret = cbor_encoder_create_map(&extension_output_map, &sec_auth_output_map, 1);
                         check_ret(ret);
 
                         ret = cbor_encode_text_stringz(&sec_auth_output_map, "rid");
@@ -799,17 +800,11 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
                         ret = cbor_encode_byte_string(&sec_auth_output_map, ext->secure_auth.rid, SEC_AUTH_RID_SIZE);
                         check_ret(ret);
 
-                        ret = cbor_encode_text_stringz(&sec_auth_output_map, "key");
-                        check_ret(ret);
-
-                        ret = cbor_encode_byte_string(&sec_auth_output_map, ext->secure_auth.key.k_y, SEC_AUTH_SCALAR_SIZE);
-                        check_ret(ret);
-
-                        ret = cbor_encode_text_stringz(&sec_auth_output_map, "key_double");
-                        check_ret(ret);
-
-                        ret = cbor_encode_byte_string(&sec_auth_output_map, ext->secure_auth.key.k_y, SEC_AUTH_SCALAR_SIZE);
-                        check_ret(ret);
+//                        ret = cbor_encode_text_stringz(&sec_auth_output_map, "key");
+//                        check_ret(ret);
+//
+//                        ret = cbor_encode_byte_string(&sec_auth_output_map, ext->secure_auth.key.k_y, SEC_AUTH_SCALAR_SIZE);
+//                        check_ret(ret);
 
 //                        ret = cbor_encode_text_stringz(&sec_auth_output_map, "y_bar");
 //                        check_ret(ret);
@@ -1940,7 +1935,92 @@ static int scan_for_next_rk(int index, uint8_t * initialRpIdHash){
     return index;
 }
 
+/**
+ * Prepares the output for the secure auth get secret ctap response
+ * @return 0 if successful
+ */
+uint8_t ctap_get_secret_output(CborEncoder * encoder, CTAP_getSecret * GS, int map_size)
+{
+    CborEncoder map;
+    int ret;
 
+    ret = cbor_encoder_create_map(encoder, &map, map_size);
+    check_ret(ret);
+
+    ret = cbor_encode_text_stringz(&map, "rid");
+    check_ret(ret);
+
+    ret = cbor_encode_byte_string(&map, GS->rid, SEC_AUTH_RID_SIZE);
+    check_ret(ret);
+
+    ret = cbor_encoder_close_container(encoder, &map);
+    check_ret(ret);
+
+    return 0;
+}
+
+uint8_t ctap_secure_auth_get_secret(CborEncoder * encoder, uint8_t * request, int length) {
+    CborEncoder secret_output;
+    CTAP_getSecret GS;
+    uint8_t rpIdHash[32];
+    CTAP_residentKey rk;
+    int count = 0;
+
+    // Parse the received request
+    int ret = ctap_parse_sec_auth_get_secret(&GS, request, length);
+
+    if (ret != 0) {
+        printf1(TAG_ERR, "error, ctap_secure_auth_get_secret failed\n");
+        return ret;
+    }
+
+    if (STATE.rk_stored == 0)
+    {
+        printf1(TAG_ERR,"No resident keys\n");
+        return 0;
+    }
+
+    if (!GS.rp.size)
+    {
+        return CTAP2_ERR_MISSING_PARAMETER;
+    }
+
+    {
+        // Get proper IdHash of rpid
+        crypto_sha256_init();
+        crypto_sha256_update(GS.rp.id, GS.rp.size);
+        crypto_sha256_final(rpIdHash);
+
+        int i;
+        for(i = 0; i < ctap_rk_size(); i++)
+        {
+            ctap_load_rk(i, &rk);
+            if (!ctap_rk_is_valid(&rk)) {
+                continue;
+            }
+
+            // skip protected rk credential
+            int protection_status = check_credential_metadata(&rk.id, getAssertionState.user_verified, 0);
+            if (protection_status != 0) {
+                continue;
+            }
+
+            if (memcmp(rk.id.rpIdHash, rpIdHash, 32) == 0)
+            {
+                printf1(TAG_GREEN, "RK %d is a rpId match!\n", i);
+                count++;
+            }
+        }
+    }
+
+    if (count > 0)
+    {
+        // prepare output
+        ret = ctap_get_secret_output(encoder, &GS, count);
+        check_ret(ret);
+    }
+    return 0;
+}
 
 uint8_t ctap_cred_mgmt(CborEncoder * encoder, uint8_t * request, int length)
 {
@@ -2208,6 +2288,7 @@ uint8_t ctap_get_assertion(CborEncoder * encoder, uint8_t * request, int length)
                                 &GA.extensions);
     check_retr(ret);
 
+    printf1(TAG_GREEN, "End of get_assertion()!\n");
     return 0;
 }
 
@@ -2562,6 +2643,7 @@ uint8_t ctap_request(uint8_t * pkt_raw, int length, CTAP_RESPONSE * resp)
         case CTAP_GET_ASSERTION:
         case CTAP_CBOR_CRED_MGMT:
         case CTAP_CBOR_CRED_MGMT_PRE:
+        case CTAP_SECURE_AUTH_GET_SECRET:
             if (ctap_device_locked())
             {
                 status = CTAP2_ERR_PIN_BLOCKED;
@@ -2653,6 +2735,15 @@ uint8_t ctap_request(uint8_t * pkt_raw, int length, CTAP_RESPONSE * resp)
             resp->length = cbor_encoder_get_buffer_size(&encoder, buf);
 
             dump_hex1(TAG_DUMP,buf, resp->length);
+            break;
+        case CTAP_SECURE_AUTH_GET_SECRET:
+            printf1(TAG_CTAP,"CTAP_SECURE_AUTH_GET_SECRET\n");
+            status = ctap_secure_auth_get_secret(&encoder, pkt_raw, length);
+
+            resp->length = cbor_encoder_get_buffer_size(&encoder, buf);
+
+            printf1(TAG_DUMP,"cbor [%d]: \n",  resp->length);
+            dump_hex1(TAG_DUMP, buf, resp->length);
             break;
         default:
             status = CTAP1_ERR_INVALID_COMMAND;

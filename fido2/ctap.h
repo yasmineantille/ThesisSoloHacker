@@ -21,6 +21,7 @@
 #define CTAP_VENDOR_FIRST           0x40
 #define CTAP_CBOR_CRED_MGMT_PRE     0x41
 #define CTAP_VENDOR_LAST            0xBF
+#define CTAP_SECURE_AUTH_GET_SECRET 0x0E    // Added CTAP command for Secure Auth
 
 #define MC_clientDataHash         0x01
 #define MC_rp                     0x02
@@ -92,10 +93,17 @@
 #define SEC_AUTH_TEMPLATE_N  0x05
 #define SEC_AUTH_TEMPLATE_SIZE  32
 
-
 // Key values for Secure Auth input
 #define EXT_SEC_AUTH_PROCESS    0x01
 #define EXT_SEC_AUTH_TEMPLATE   0x02
+
+// For Secure Auth extra requests
+#define SA_cmd                    0x01
+    #define SA_rpId               0x01
+    #define SA_rid                0x02
+    #define SA_cmdSecretKey       0x01
+
+#define RESP_SA_secret            0x1
 
 #define EXT_CRED_PROTECT_INVALID                0x00
 #define EXT_CRED_PROTECT_OPTIONAL               0x01
@@ -301,6 +309,8 @@ typedef struct {
     SecureAuthEncrypt enc;
 } CTAP_secure_auth;
 
+
+
 /// added extension for ping pong
 typedef struct
 {
@@ -353,7 +363,11 @@ typedef struct
 
 } CTAP_makeCredential;
 
-
+typedef struct
+{
+    struct rpId rp;
+    uint8_t rid[SEC_AUTH_RID_SIZE];
+} CTAP_getSecret;
 
 typedef struct
 {
