@@ -535,20 +535,7 @@ static void secure_auth_key_derivation(SecureAuthMSK * msk, SecureAuthKey * sa_k
  */
 static void secure_auth_encrypt(CTAP_secure_auth * sa, SecureAuthEncrypt * enc)
 {
-/*    uint8_t z[5*SEC_AUTH_SCALAR_SIZE];   // z is collection of random scalars
-    uint8_t priv_key_buf[SEC_AUTH_SCALAR_SIZE];  // buffer for private key that can be dismissed
-
-    // randomly generate message now as it's not yet passed along
-    // scalar for the secp256r1 curve should be 256 bits long
-    for (int i = 0; i < 5; i++) {
-        if (ctap_generate_rng(&z[i*SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE) != 1) {
-            printf1(TAG_ERR, "Error, rng failed\n");
-        }
-//        printf1(TAG_GREEN, "Generated z for i=%d\n", i);
-//        dump_hex1(TAG_GREEN, &z[i*SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE);
-//        printf1(TAG_GREEN, "\n");
-    }*/
-
+    // For testing print out data to encrypt
     for (int i = 0; i < 5; i++) {
         printf1(TAG_GREEN, "Before encryption: printing z for i=%d : ", i);
         dump_hex1(TAG_GREEN, &sa->template[i*SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE);
@@ -565,8 +552,6 @@ static void secure_auth_encrypt(CTAP_secure_auth * sa, SecureAuthEncrypt * enc)
 
     // encrypt message
     for (int j = 0; j < 5; ++j) {
-        printf1(TAG_GREEN, "encryption loop j=%d \n", j);
-
         // buffers for encryption intermediate results
         uint8_t* result1_buf = (uint8_t*)malloc(SEC_AUTH_POINT_SIZE);
         uint8_t* result2_buf = (uint8_t*)malloc(SEC_AUTH_POINT_SIZE);
@@ -587,9 +572,11 @@ static void secure_auth_encrypt(CTAP_secure_auth * sa, SecureAuthEncrypt * enc)
 
         // scalar multiplication of result of addition and mod inv of ri
         crypto_ecc256_scalar_mult(&enc->ciphertext[j*SEC_AUTH_POINT_SIZE], result_addition_buf, r_mod_inv);
-//        printf1(TAG_GREEN, "Result of encryption: ");
-//        dump_hex1(TAG_GREEN, &enc->ciphertext[j*SEC_AUTH_POINT_SIZE], SEC_AUTH_POINT_SIZE);
-//        printf1(TAG_GREEN, "\n");
+
+        // For testing, print out encryption results
+        printf1(TAG_GREEN, "Result of encryption: ");
+        dump_hex1(TAG_GREEN, &enc->ciphertext[j*SEC_AUTH_POINT_SIZE], SEC_AUTH_POINT_SIZE);
+        printf1(TAG_GREEN, "\n");
 
         free(result1_buf);
         free(result2_buf);
