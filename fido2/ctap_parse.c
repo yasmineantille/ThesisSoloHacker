@@ -613,7 +613,7 @@ uint8_t ctap_parse_secure_auth(CborValue * val, CTAP_secure_auth * sa, uint8_t *
     int key;
     int ret;
     unsigned int i;
-    char sec_auth_process[4];
+    char sec_auth_process[5];
 
     if (cbor_value_get_type(val) != CborMapType)
     {
@@ -675,13 +675,25 @@ uint8_t ctap_parse_secure_auth(CborValue * val, CTAP_secure_auth * sa, uint8_t *
                 check_ret(ret);
                 parsed_count++;
                 break;
+            case EXT_SEC_AUTH_RID:
+                /// Parse received rid
+                printf1(TAG_PARSE, "EXT_SEC_AUTH_RID\r\n");
+                ret = parse_fixed_byte_string(&map, getAssertionState.rid, SEC_AUTH_RID_SIZE);
+                check_retr(ret);
+                parsed_count++;
+
+                printf1(TAG_GREEN, "Parsed received rid : ");
+                dump_hex1(TAG_GREEN, getAssertionState.rid, SEC_AUTH_RID_SIZE);
+                printf1(TAG_GREEN, "\n");
         }
 
         ret = cbor_value_advance(&map);
         check_ret(ret);
     }
 
-    if (parsed_count != 2)
+    // for auth request parsing of 3 items necessary,
+    // for reg request only 2
+    if (parsed_count != 2 && parsed_count != 3)
     {
         printf1(TAG_ERR, "ctap_parse_secure_auth missing parameter.  Got %d.\r\n", parsed_count);
         return CTAP2_ERR_MISSING_PARAMETER;
@@ -773,6 +785,8 @@ uint8_t ctap_parse_extensions(CborValue * val, CTAP_extensions * ext)
     int ret;
     unsigned int i;
     bool b;
+
+    printf1(TAG_GREEN,"ctap_parse_extensions() called\n");
 
     if (cbor_value_get_type(val) != CborMapType)
     {
@@ -1440,11 +1454,12 @@ uint8_t ctap_parse_get_assertion(CTAP_getAssertion * GA, uint8_t * request, int 
 
                 break;
             case GA_extensions:
+                printf1(TAG_GREEN,"GA_extensions PARSIIINGGGG\n");
+
                 printf1(TAG_GA,"GA_extensions\n");
                 ret = ctap_parse_extensions(&map, &GA->extensions);
                 check_retr(ret);
                 break;
-
             case GA_options:
                 printf1(TAG_GA,"CTAP_options\n");
                 ret = parse_options(&map, &GA->rk, &GA->uv, &GA->up);

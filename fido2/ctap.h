@@ -96,6 +96,7 @@
 // Key values for Secure Auth input
 #define EXT_SEC_AUTH_PROCESS    0x01
 #define EXT_SEC_AUTH_TEMPLATE   0x02
+#define EXT_SEC_AUTH_RID        0x03
 
 // For Secure Auth extra requests
 #define SA_cmd                    0x01
@@ -293,7 +294,7 @@ typedef struct {
 
 typedef struct {
     uint8_t ciphertext[SEC_AUTH_MSK_N*SEC_AUTH_POINT_SIZE];
-    uint8_t x[64];
+    uint8_t x[SEC_AUTH_POINT_SIZE];
 } SecureAuthEncrypt;
 
 typedef struct {
@@ -302,7 +303,7 @@ typedef struct {
 } SecureAuthKey;
 
 typedef struct {
-    uint8_t template[SEC_AUTH_TEMPLATE_N*SEC_AUTH_TEMPLATE_N*SEC_AUTH_TEMPLATE_SIZE];   // TODO: correct this
+    uint8_t template[SEC_AUTH_TEMPLATE_N*SEC_AUTH_TEMPLATE_SIZE];
     uint8_t rid[SEC_AUTH_RID_SIZE];
     SecureAuthMSK msk;
     SecureAuthKey key;
@@ -455,6 +456,7 @@ struct _getAssertionState {
     // Adding Secure Auth stuff
     SecureAuthKey secretKey;
     uint8_t rid[SEC_AUTH_RID_SIZE];
+    SecureAuthEncrypt encryptionData;
 };
 
 void ctap_response_init(CTAP_RESPONSE * resp);

@@ -533,9 +533,9 @@ static void secure_auth_key_derivation(SecureAuthMSK * msk, SecureAuthKey * sa_k
  * @param z is message (biometric template)
  * @return 1 if successful, otherwise failed
  */
-static void secure_auth_encrypt(SecureAuthMSK * msk, SecureAuthEncrypt * enc)
+static void secure_auth_encrypt(CTAP_secure_auth * sa, SecureAuthEncrypt * enc)
 {
-    uint8_t z[5*SEC_AUTH_SCALAR_SIZE];   // z is collection of random scalars
+/*    uint8_t z[5*SEC_AUTH_SCALAR_SIZE];   // z is collection of random scalars
     uint8_t priv_key_buf[SEC_AUTH_SCALAR_SIZE];  // buffer for private key that can be dismissed
 
     // randomly generate message now as it's not yet passed along
@@ -547,13 +547,21 @@ static void secure_auth_encrypt(SecureAuthMSK * msk, SecureAuthEncrypt * enc)
 //        printf1(TAG_GREEN, "Generated z for i=%d\n", i);
 //        dump_hex1(TAG_GREEN, &z[i*SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE);
 //        printf1(TAG_GREEN, "\n");
+    }*/
+
+    for (int i = 0; i < 5; i++) {
+        printf1(TAG_GREEN, "Before encryption: printing z for i=%d : ", i);
+        dump_hex1(TAG_GREEN, &sa->template[i*SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE);
+        printf1(TAG_GREEN, "\n");
     }
+
+    uint8_t priv_key_buf[SEC_AUTH_SCALAR_SIZE];  // buffer for private key that can be dismissed
 
     // generate x as point on elliptic curve
     crypto_ecc256_make_key_pair(enc->x, priv_key_buf);
-//    printf1(TAG_GREEN, "Generated x: ");
-//    dump_hex1(TAG_GREEN, enc->x, sizeof enc->x);
-//    printf1(TAG_GREEN, "\n");
+    printf1(TAG_GREEN, "Generated x: ");
+    dump_hex1(TAG_GREEN, enc->x, sizeof enc->x);
+    printf1(TAG_GREEN, "\n");
 
     // encrypt message
     for (int j = 0; j < 5; ++j) {
@@ -566,16 +574,16 @@ static void secure_auth_encrypt(SecureAuthMSK * msk, SecureAuthEncrypt * enc)
         uint8_t* r_mod_inv = (uint8_t*)malloc(SEC_AUTH_MSK_R_SIZE);
 
         // scalar multiplication of x with zi
-        crypto_ecc256_scalar_mult(result1_buf, enc->x, &z[j * SEC_AUTH_SCALAR_SIZE]);
+        crypto_ecc256_scalar_mult(result1_buf, enc->x, &sa->template[j * SEC_AUTH_SCALAR_SIZE]);
 
         // scalar multiplication of x with ki
-        crypto_ecc256_scalar_mult(result2_buf, enc->x, &msk->k[j * SEC_AUTH_MSK_K_SIZE]);
+        crypto_ecc256_scalar_mult(result2_buf, enc->x, &sa->msk.k[j * SEC_AUTH_MSK_K_SIZE]);
 
         // addition of two previous results
         crypto_ecc256_addition(result_addition_buf, result1_buf, result2_buf);
 
         // modular inverse of ri
-        crypto_ecc256_modular_inverse(r_mod_inv, &msk->r[j * SEC_AUTH_MSK_R_SIZE]);
+        crypto_ecc256_modular_inverse(r_mod_inv, &sa->msk.r[j * SEC_AUTH_MSK_R_SIZE]);
 
         // scalar multiplication of result of addition and mod inv of ri
         crypto_ecc256_scalar_mult(&enc->ciphertext[j*SEC_AUTH_POINT_SIZE], result_addition_buf, r_mod_inv);
@@ -588,6 +596,9 @@ static void secure_auth_encrypt(SecureAuthMSK * msk, SecureAuthEncrypt * enc)
         free(result_addition_buf);
         free(r_mod_inv);
     }
+
+    memmove(&getAssertionState.encryptionData.x, enc->x, SEC_AUTH_POINT_SIZE);
+    memmove(&getAssertionState.encryptionData.ciphertext, enc->ciphertext, SEC_AUTH_MSK_N*SEC_AUTH_POINT_SIZE);
 }
 
 static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf, unsigned int * ext_encoder_buf_size)
@@ -705,10 +716,13 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
 
         if (ext->sec_auth_process == EXT_SEC_AUTH_REG_REQUEST)
         {
+            printf1(TAG_CTAP, "Processing secure-auth extension registration request\r\n");
+
             // create msk
             ctap_sec_auth_create_msk(&ext->secure_auth.msk);
 
             // create key
+            // TODO: pass biometrics over
             secure_auth_key_derivation(&ext->secure_auth.msk, &ext->secure_auth.key);
 
             // create random id
@@ -725,8 +739,9 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
 
         if (ext->sec_auth_process == EXT_SEC_AUTH_AUTH_REQUEST)
         {
+            printf1(TAG_CTAP, "Processing secure-auth extension authentication request\r\n");
             // encryption
-            secure_auth_encrypt(&ext->secure_auth.msk, &ext->secure_auth.enc);
+            secure_auth_encrypt(&ext->secure_auth, &ext->secure_auth.enc);
         }
 
         extensions_used += 1;
@@ -794,6 +809,8 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
                     ret = cbor_encode_text_stringz(&extension_output_map, "secure-auth");
                     check_ret(ret);
 
+                    // TODO: will output for both requests stay same? Then refactor duplicated code!
+
                     if (ext->sec_auth_process == EXT_SEC_AUTH_REG_REQUEST)
                     {
                         ret = cbor_encoder_create_map(&extension_output_map, &sec_auth_output_map, 1);
@@ -810,7 +827,17 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
                     }
                     if (ext->sec_auth_process == EXT_SEC_AUTH_AUTH_REQUEST)
                     {
-                        // TODO do return for auth request
+                        ret = cbor_encoder_create_map(&extension_output_map, &sec_auth_output_map, 1);
+                        check_ret(ret);
+
+                        ret = cbor_encode_text_stringz(&sec_auth_output_map, "rid");
+                        check_ret(ret);
+
+                        ret = cbor_encode_byte_string(&sec_auth_output_map, getAssertionState.rid, SEC_AUTH_RID_SIZE);
+                        check_ret(ret);
+
+                        ret = cbor_encoder_close_container(&extension_output_map, &sec_auth_output_map);
+                        check_ret(ret);
                     }
 
                 }
