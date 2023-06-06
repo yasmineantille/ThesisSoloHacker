@@ -454,6 +454,7 @@ struct _getAssertionState {
     uint8_t customCredIdSize;
     // Adding Secure Auth stuff
     SecureAuthKey secretKey;
+    uint8_t rid[SEC_AUTH_RID_SIZE];
 };
 
 void ctap_response_init(CTAP_RESPONSE * resp);

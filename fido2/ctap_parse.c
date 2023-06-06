@@ -1810,9 +1810,9 @@ uint8_t ctap_parse_sec_auth_get_secret(CTAP_getSecret * GS, uint8_t * request, i
                 ret = parse_fixed_byte_string(&map, GS->rid, SEC_AUTH_RID_SIZE);
                 check_retr(ret);
 
-                printf1(TAG_GREEN, "Parsed received rid : ");
+/*                printf1(TAG_GREEN, "Parsed received rid : ");
                 dump_hex1(TAG_GREEN, GS->rid, SEC_AUTH_RID_SIZE);
-                printf1(TAG_GREEN, "\n");
+                printf1(TAG_GREEN, "\n");*/
                 break;
         }
         ret = cbor_value_advance(&map);

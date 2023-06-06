@@ -720,6 +720,7 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
             printf1(TAG_GREEN, "SECURE AUTH: Generated rid: ");
             dump_hex1(TAG_GREEN, ext->secure_auth.rid, SEC_AUTH_RID_SIZE);
             printf1(TAG_GREEN, "\n");
+            memmove(&getAssertionState.rid, ext->secure_auth.rid, SEC_AUTH_RID_SIZE);
         }
 
         if (ext->sec_auth_process == EXT_SEC_AUTH_AUTH_REQUEST)
@@ -803,23 +804,6 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
 
                         ret = cbor_encode_byte_string(&sec_auth_output_map, ext->secure_auth.rid, SEC_AUTH_RID_SIZE);
                         check_ret(ret);
-
-//                        ret = cbor_encode_text_stringz(&sec_auth_output_map, "key");
-//                        check_ret(ret);
-//
-//                        ret = cbor_encode_byte_string(&sec_auth_output_map, ext->secure_auth.key.k_y, SEC_AUTH_SCALAR_SIZE);
-//                        check_ret(ret);
-
-//                        ret = cbor_encode_text_stringz(&sec_auth_output_map, "y_bar");
-//                        check_ret(ret);
-//
-//                        for (int i = 0; i < 5; i++) {
-//                            ret = cbor_encode_byte_string(&sec_auth_output_map, &ext->secure_auth.key.y_bar[i*SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE);
-//                            check_ret(ret);
-//                        }
-
-//                        ret = cbor_encode_byte_string(&sec_auth_output_map, ext->secure_auth.key.y_bar, SEC_AUTH_MSK_N * 64);
-//                        check_ret(ret);
 
                         ret = cbor_encoder_close_container(&extension_output_map, &sec_auth_output_map);
                         check_ret(ret);
@@ -1941,6 +1925,8 @@ static int scan_for_next_rk(int index, uint8_t * initialRpIdHash){
 
 /**
  * Prepares the output for the secure auth get secret ctap response
+ * Output includes: rid, k_y and y_bar
+ *
  * @return 0 if successful
  */
 uint8_t ctap_get_secret_output(CborEncoder * encoder, CTAP_getSecret * GS, int map_size)
@@ -1951,11 +1937,11 @@ uint8_t ctap_get_secret_output(CborEncoder * encoder, CTAP_getSecret * GS, int m
     ret = cbor_encoder_create_map(encoder, &map, map_size);
     check_ret(ret);
 
-//    ret = cbor_encode_text_stringz(&map, "rid");
-//    check_ret(ret);
-//
-//    ret = cbor_encode_byte_string(&map, GS->rid, SEC_AUTH_RID_SIZE);
-//    check_ret(ret);
+    ret = cbor_encode_text_stringz(&map, "rid");
+    check_ret(ret);
+
+    ret = cbor_encode_byte_string(&map, GS->rid, SEC_AUTH_RID_SIZE);
+    check_ret(ret);
 
     ret = cbor_encode_text_stringz(&map, "secret_key_k");
     check_ret(ret);
@@ -1990,19 +1976,14 @@ uint8_t ctap_secure_auth_get_secret(CborEncoder * encoder, uint8_t * request, in
         return ret;
     }
 
-    if (STATE.rk_stored == 0)
-    {
-        printf1(TAG_ERR,"No resident keys\n");
-        return 0;
-    }
-
     if (!GS.rp.size)
     {
         return CTAP2_ERR_MISSING_PARAMETER;
     }
 
+    // Check if there is an rpId match
     {
-        // Get proper IdHash of rpid
+        // Get proper IdHash of rpId
         crypto_sha256_init();
         crypto_sha256_update(GS.rp.id, GS.rp.size);
         crypto_sha256_final(rpIdHash);
@@ -2029,11 +2010,25 @@ uint8_t ctap_secure_auth_get_secret(CborEncoder * encoder, uint8_t * request, in
         }
     }
 
+    // if an rpId match was found, check if rid is same as well
     if (count > 0)
     {
-        // prepare output
-        // count = 2 because k_y and y_bar will be returned, therefore a total of 2 items
-        ret = ctap_get_secret_output(encoder, &GS, 2);
+        printf1(TAG_GREEN, "Parsed received rid : ");
+        dump_hex1(TAG_GREEN, GS.rid, SEC_AUTH_RID_SIZE);
+        printf1(TAG_GREEN, "\n");
+
+        printf1(TAG_GREEN, "State rid : ");
+        dump_hex1(TAG_GREEN, getAssertionState.rid, SEC_AUTH_RID_SIZE);
+        printf1(TAG_GREEN, "\n");
+
+        if (memcmp(getAssertionState.rid, GS.rid, SEC_AUTH_RID_SIZE) != 0)
+        {
+            printf1(TAG_ERR,"RID does not match\n");
+            return CTAP2_ERR_CREDENTIAL_NOT_VALID;
+        }
+
+        // prepare output with 3 items
+        ret = ctap_get_secret_output(encoder, &GS, 3);
         check_ret(ret);
     }
     return 0;
