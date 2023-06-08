@@ -1943,7 +1943,7 @@ static int scan_for_next_rk(int index, uint8_t * initialRpIdHash){
  *
  * @return 0 if successful
  */
-uint8_t ctap_get_secret_output(CborEncoder * encoder, CTAP_getSecret * GS, int map_size)
+uint8_t ctap_get_secret_output(CborEncoder * encoder, CTAP_secureAuthGetRequest * GS, int map_size)
 {
     CborEncoder map;
     int ret;
@@ -1975,31 +1975,60 @@ uint8_t ctap_get_secret_output(CborEncoder * encoder, CTAP_getSecret * GS, int m
     return 0;
 }
 
-uint8_t ctap_secure_auth_get_secret(CborEncoder * encoder, uint8_t * request, int length) {
-    CborEncoder secret_output;
-    CTAP_getSecret GS;
+/**
+ * Prepares the output for the secure auth get secret ctap response
+ * Output includes: rid, x and ciphertext c
+ *
+ * @return 0 if successful
+ */
+uint8_t ctap_get_ciphertext_output(CborEncoder * encoder, CTAP_secureAuthGetRequest * GS, int map_size)
+{
+    CborEncoder map;
+    int ret;
+
+    ret = cbor_encoder_create_map(encoder, &map, map_size);
+    check_ret(ret);
+
+    ret = cbor_encode_text_stringz(&map, "rid");
+    check_ret(ret);
+
+    ret = cbor_encode_byte_string(&map, GS->rid, SEC_AUTH_RID_SIZE);
+    check_ret(ret);
+
+    ret = cbor_encode_text_stringz(&map, "x");
+    check_ret(ret);
+
+    ret = cbor_encode_byte_string(&map, getAssertionState.encryptionData.x, SEC_AUTH_POINT_SIZE);
+    check_ret(ret);
+
+    ret = cbor_encode_text_stringz(&map, "ciphertext");
+    check_ret(ret);
+
+    ret = cbor_encode_byte_string(&map, getAssertionState.encryptionData.ciphertext, SEC_AUTH_MSK_N*SEC_AUTH_POINT_SIZE);
+    check_ret(ret);
+
+    ret = cbor_encoder_close_container(encoder, &map);
+    check_ret(ret);
+
+    return 0;
+}
+
+
+/**
+ * Checks if there is an rpId match, which means a user credential exists
+ * @return number of matches, 0 if no match was found
+ */
+uint8_t check_for_rpid_match(CTAP_secureAuthGetRequest * GS)
+{
     uint8_t rpIdHash[32];
+    int matches = 0;
     CTAP_residentKey rk;
-    int count = 0;
-
-    // Parse the received request
-    int ret = ctap_parse_sec_auth_get_secret(&GS, request, length);
-
-    if (ret != 0) {
-        printf1(TAG_ERR, "error, ctap_secure_auth_get_secret failed\n");
-        return ret;
-    }
-
-    if (!GS.rp.size)
-    {
-        return CTAP2_ERR_MISSING_PARAMETER;
-    }
 
     // Check if there is an rpId match
     {
         // Get proper IdHash of rpId
         crypto_sha256_init();
-        crypto_sha256_update(GS.rp.id, GS.rp.size);
+        crypto_sha256_update(GS->rp.id, GS->rp.size);
         crypto_sha256_final(rpIdHash);
 
         int i;
@@ -2019,32 +2048,79 @@ uint8_t ctap_secure_auth_get_secret(CborEncoder * encoder, uint8_t * request, in
             if (memcmp(rk.id.rpIdHash, rpIdHash, 32) == 0)
             {
                 printf1(TAG_GREEN, "RK %d is a rpId match!\n", i);
-                count++;
+                matches++;
             }
         }
     }
+    return matches;
+}
 
-    // if an rpId match was found, check if rid is same as well
-    if (count > 0)
+/**
+ * Checks if the rid matches with the one saved in state
+ * @return 0 if matches, error otherwise
+ */
+uint8_t check_matching_rid(CTAP_secureAuthGetRequest * GS)
+{
+    printf1(TAG_GREEN, "Parsed received rid : ");
+    dump_hex1(TAG_GREEN, GS->rid, SEC_AUTH_RID_SIZE);
+    printf1(TAG_GREEN, "\n");
+
+    printf1(TAG_GREEN, "State rid : ");
+    dump_hex1(TAG_GREEN, getAssertionState.rid, SEC_AUTH_RID_SIZE);
+    printf1(TAG_GREEN, "\n");
+
+    if (memcmp(getAssertionState.rid, GS->rid, SEC_AUTH_RID_SIZE) != 0)
     {
-        printf1(TAG_GREEN, "Parsed received rid : ");
-        dump_hex1(TAG_GREEN, GS.rid, SEC_AUTH_RID_SIZE);
-        printf1(TAG_GREEN, "\n");
-
-        printf1(TAG_GREEN, "State rid : ");
-        dump_hex1(TAG_GREEN, getAssertionState.rid, SEC_AUTH_RID_SIZE);
-        printf1(TAG_GREEN, "\n");
-
-        if (memcmp(getAssertionState.rid, GS.rid, SEC_AUTH_RID_SIZE) != 0)
-        {
-            printf1(TAG_ERR,"RID does not match\n");
-            return CTAP2_ERR_CREDENTIAL_NOT_VALID;
-        }
-
-        // prepare output with 3 items
-        ret = ctap_get_secret_output(encoder, &GS, 3);
-        check_ret(ret);
+        printf1(TAG_ERR,"RID does not match\n");
+        return CTAP2_ERR_CREDENTIAL_NOT_VALID;
     }
+    return 0;
+}
+
+uint8_t ctap_secure_auth_get_ciphertext(CborEncoder * encoder, uint8_t * request, int length)
+{
+    CTAP_secureAuthGetRequest GS;
+
+    // Parse the received request
+    int ret = ctap_parse_sec_auth_get_request(&GS, request, length);
+
+    if (ret != 0) {
+        printf1(TAG_ERR, "error, ctap_secure_auth_get_ciphertext failed\n");
+        return ret;
+    }
+
+    // check if either rpId or rid do not match
+    if (check_for_rpid_match(&GS) == 0 || check_matching_rid(&GS) != 0) {
+        return CTAP2_ERR_CREDENTIAL_NOT_VALID;
+    }
+
+    // prepare output with 3 items
+    ret = ctap_get_ciphertext_output(encoder, &GS, 3);
+    check_ret(ret);
+
+    return 0;
+}
+
+uint8_t ctap_secure_auth_get_secret(CborEncoder * encoder, uint8_t * request, int length) {
+    CTAP_secureAuthGetRequest GS;
+
+    // Parse the received request
+    int ret = ctap_parse_sec_auth_get_request(&GS, request, length);
+
+    if (ret != 0) {
+        printf1(TAG_ERR, "error, ctap_secure_auth_get_secret failed\n");
+        return ret;
+    }
+
+    // check if either rpId or rid do not match
+    if (check_for_rpid_match(&GS) == 0 || check_matching_rid(&GS) != 0) {
+        return CTAP2_ERR_CREDENTIAL_NOT_VALID;
+    }
+
+    // prepare output with 3 items
+    ret = ctap_get_secret_output(encoder, &GS, 3);
+    check_ret(ret);
+
     return 0;
 }
 
@@ -2670,6 +2746,7 @@ uint8_t ctap_request(uint8_t * pkt_raw, int length, CTAP_RESPONSE * resp)
         case CTAP_CBOR_CRED_MGMT:
         case CTAP_CBOR_CRED_MGMT_PRE:
         case CTAP_SECURE_AUTH_GET_SECRET:
+        case CTAP_SECURE_AUTH_GET_CIPHER:
             if (ctap_device_locked())
             {
                 status = CTAP2_ERR_PIN_BLOCKED;
@@ -2765,6 +2842,15 @@ uint8_t ctap_request(uint8_t * pkt_raw, int length, CTAP_RESPONSE * resp)
         case CTAP_SECURE_AUTH_GET_SECRET:
             printf1(TAG_CTAP,"CTAP_SECURE_AUTH_GET_SECRET\n");
             status = ctap_secure_auth_get_secret(&encoder, pkt_raw, length);
+
+            resp->length = cbor_encoder_get_buffer_size(&encoder, buf);
+
+            printf1(TAG_DUMP,"cbor [%d]: \n",  resp->length);
+            dump_hex1(TAG_DUMP, buf, resp->length);
+            break;
+        case CTAP_SECURE_AUTH_GET_CIPHER:
+            printf1(TAG_CTAP,"CTAP_SECURE_AUTH_GET_CIPHER\n");
+            status = ctap_secure_auth_get_ciphertext(&encoder, pkt_raw, length);
 
             resp->length = cbor_encoder_get_buffer_size(&encoder, buf);
 

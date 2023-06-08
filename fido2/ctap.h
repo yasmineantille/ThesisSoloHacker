@@ -22,6 +22,7 @@
 #define CTAP_CBOR_CRED_MGMT_PRE     0x41
 #define CTAP_VENDOR_LAST            0xBF
 #define CTAP_SECURE_AUTH_GET_SECRET 0x0E    // Added CTAP command for Secure Auth
+#define CTAP_SECURE_AUTH_GET_CIPHER 0x0F
 
 #define MC_clientDataHash         0x01
 #define MC_rp                     0x02
@@ -368,7 +369,7 @@ typedef struct
 {
     struct rpId rp;
     uint8_t rid[SEC_AUTH_RID_SIZE];
-} CTAP_getSecret;
+} CTAP_secureAuthGetRequest;
 
 typedef struct
 {
