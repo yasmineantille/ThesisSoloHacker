@@ -520,7 +520,7 @@ static void secure_auth_key_derivation(SecureAuthMSK * msk, SecureAuthKey * sa_k
     dump_hex1(TAG_GREEN, sa_key->k_y, SEC_AUTH_SCALAR_SIZE);
     printf1(TAG_GREEN, "\n");
 
-    memmove(getAssertionState.secretKey.k_y, sa_key->k_y, SEC_AUTH_SCALAR_SIZE);
+    memmove(&getAssertionState.secretKey.k_y, sa_key->k_y, SEC_AUTH_SCALAR_SIZE);
 }
 
 /**
@@ -1995,7 +1995,7 @@ uint8_t ctap_get_ciphertext_output(CborEncoder * encoder, CTAP_secureAuthGetRequ
     ret = cbor_encode_byte_string(&map, GS->rid, SEC_AUTH_RID_SIZE);
     check_ret(ret);
 
-    ret = cbor_encode_text_stringz(&map, "x");
+    ret = cbor_encode_text_stringz(&map, "cipher_x");
     check_ret(ret);
 
     ret = cbor_encode_byte_string(&map, getAssertionState.encryptionData.x, SEC_AUTH_POINT_SIZE);
