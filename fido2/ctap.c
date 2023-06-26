@@ -462,7 +462,6 @@ static int is_cred_id_matching_rk(CredentialId * credId, CTAP_residentKey * rk)
 /**
  * Creates msk for secure auth extension
  * Uses private keys from elliptic curve key gen as random k numbers
- * @return 1 if successful, otherwise failed
  */
 static void ctap_sec_auth_create_msk(SecureAuthMSK * msk)
 {
@@ -488,37 +487,27 @@ static void ctap_sec_auth_create_msk(SecureAuthMSK * msk)
 /**
  * Key derivation for secure auth extension
  *
- * @return 1 if successful, otherwise failed
  */
-static void secure_auth_key_derivation(SecureAuthMSK * msk, SecureAuthKey * sa_key)
+static void secure_auth_key_derivation(CTAP_secure_auth * SA)
 {
-    // y is collection of random scalars
-    uint8_t y[5*SEC_AUTH_SCALAR_SIZE];
-
-    // randomly generate y now as it's not yet passed along
-    for (int i = 0; i < 5; i++) {
-        if (ctap_generate_rng(&y[i*SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE) != 1) {
-            printf1(TAG_ERR, "Error, rng failed\n");
-        }
-//        printf1(TAG_GREEN, "Generated y for i=%d\n", i);
-//        dump_hex1(TAG_GREEN, &y[i*SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE);
-//        printf1(TAG_GREEN, "\n");
-    }
+    SecureAuthMSK * msk = &SA->msk;
+    SecureAuthKey * sa_key = &SA->key;
+    uint8_t * template = &SA->template;
 
     // calculate ri * yi
     for(int i = 0; i < 5; i++) {
-        crypto_calculate_mod_p(&sa_key->y_bar[i * SEC_AUTH_SCALAR_SIZE], &y[i * SEC_AUTH_SCALAR_SIZE], &msk->r[i * SEC_AUTH_MSK_R_SIZE]);
-        printf1(TAG_GREEN, "Resulting y_bar value: ");
-        dump_hex1(TAG_GREEN, &sa_key->y_bar[i * SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE);
-        printf1(TAG_GREEN, "\n");
+        crypto_calculate_mod_p(&sa_key->y_bar[i * SEC_AUTH_SCALAR_SIZE], &template[i * SEC_AUTH_SCALAR_SIZE], &msk->r[i * SEC_AUTH_MSK_R_SIZE]);
+//        printf1(TAG_GREEN, "Resulting y_bar value: ");
+//        dump_hex1(TAG_GREEN, &sa_key->y_bar[i * SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE);
+//        printf1(TAG_GREEN, "\n");
         memmove(&getAssertionState.secretKey.y_bar[i * SEC_AUTH_SCALAR_SIZE], &sa_key->y_bar[i * SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE);
     }
-    // calculate ki * yi
-    crypto_calculate_inner_product(sa_key->k_y, msk->k, y, 5);
 
-    printf1(TAG_GREEN, "Resulting k_y value: ");
-    dump_hex1(TAG_GREEN, sa_key->k_y, SEC_AUTH_SCALAR_SIZE);
-    printf1(TAG_GREEN, "\n");
+    // calculate ki * yi
+    crypto_calculate_inner_product(sa_key->k_y, msk->k, template, 5);
+//    printf1(TAG_GREEN, "Resulting k_y value: ");
+//    dump_hex1(TAG_GREEN, sa_key->k_y, SEC_AUTH_SCALAR_SIZE);
+//    printf1(TAG_GREEN, "\n");
 
     memmove(&getAssertionState.secretKey.k_y, sa_key->k_y, SEC_AUTH_SCALAR_SIZE);
 }
@@ -531,7 +520,6 @@ static void secure_auth_key_derivation(SecureAuthMSK * msk, SecureAuthKey * sa_k
  * @param msk pointer to SecureAuthMSK data
  * @param enc pointer to SecureAuthEncrypt data
  * @param z is message (biometric template)
- * @return 1 if successful, otherwise failed
  */
 static void secure_auth_encrypt(CTAP_secure_auth * sa, SecureAuthEncrypt * enc)
 {
@@ -710,7 +698,8 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
 
             // create key
             // TODO: pass biometrics over
-            secure_auth_key_derivation(&ext->secure_auth.msk, &ext->secure_auth.key);
+            //secure_auth_key_derivation(&ext->secure_auth.msk, &ext->secure_auth.key, &ext->secure_auth.template);
+            secure_auth_key_derivation(&ext->secure_auth);
 
             // create random id
             if (ctap_generate_rng(ext->secure_auth.rid, SEC_AUTH_RID_SIZE) != 1)
