@@ -535,7 +535,58 @@ static void secure_auth_encrypt(CTAP_secure_auth * sa, SecureAuthEncrypt * enc)
     // generate x as point on elliptic curve
     crypto_ecc256_make_key_pair(enc->x, priv_key_buf);
     printf1(TAG_GREEN, "Generated x: ");
-    dump_hex1(TAG_GREEN, enc->x, sizeof enc->x);
+    dump_hex1(TAG_GREEN, enc->x, SEC_AUTH_POINT_SIZE);
+    printf1(TAG_GREEN, "\n");
+
+    // for testing right now
+    unsigned char byte_string[] = {
+            0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+            0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+            0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+            0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01
+    };
+
+
+    int result = memcmp(byte_string, &sa->template[0 * SEC_AUTH_SCALAR_SIZE], sizeof(byte_string));
+//    if (result == 0) {
+//        printf1(TAG_GREEN,"The byte strings are equal.\n");
+//    } else {
+//        printf1(TAG_GREEN, "The byte strings are not equal.\n");
+//    }
+
+    // for test
+    uint8_t scalar[32];
+    for (int i = 0; i<32; i++) {
+        scalar[i] = 1;
+    }
+    printf1(TAG_GREEN, "Scalar value: ");
+    dump_hex1(TAG_GREEN, scalar, 32);
+
+    // Test 1
+    uint8_t* test_buf = (uint8_t*)malloc(SEC_AUTH_POINT_SIZE);
+    crypto_ecc256_scalar_mult(test_buf, enc->x, scalar);
+    printf1(TAG_GREEN, "result of scalar multiplication of x with scalar: ");
+    dump_hex1(TAG_GREEN, test_buf, SEC_AUTH_POINT_SIZE);
+    printf1(TAG_GREEN, "\n");
+
+    // Test 2
+    memset(scalar, 0, sizeof(scalar));
+    scalar[0] = 1;
+    printf1(TAG_GREEN, "Scalar value: ");
+    dump_hex1(TAG_GREEN, scalar, 32);
+    crypto_ecc256_scalar_mult(test_buf, enc->x, scalar);
+    printf1(TAG_GREEN, "result of scalar multiplication of x with scalar: ");
+    dump_hex1(TAG_GREEN, test_buf, SEC_AUTH_POINT_SIZE);
+    printf1(TAG_GREEN, "\n");
+
+    // Test 3
+    memset(scalar, 0, sizeof(scalar));
+    scalar[31] = 1;
+    printf1(TAG_GREEN, "Scalar value: ");
+    dump_hex1(TAG_GREEN, scalar, 32);
+    crypto_ecc256_scalar_mult(test_buf, enc->x, scalar);
+    printf1(TAG_GREEN, "result of scalar multiplication of x with scalar: ");
+    dump_hex1(TAG_GREEN, test_buf, SEC_AUTH_POINT_SIZE);
     printf1(TAG_GREEN, "\n");
 
     // encrypt message
@@ -549,6 +600,17 @@ static void secure_auth_encrypt(CTAP_secure_auth * sa, SecureAuthEncrypt * enc)
         // scalar multiplication of x with zi
         crypto_ecc256_scalar_mult(result1_buf, enc->x, &sa->template[j * SEC_AUTH_SCALAR_SIZE]);
 
+        printf1(TAG_GREEN, "result of scalar multiplication of x with zi for j = %d \n", j);
+        dump_hex1(TAG_GREEN, result1_buf, SEC_AUTH_POINT_SIZE);
+        printf1(TAG_GREEN, "\n");
+
+        // TODO
+        // check wether result is same as x if message is 1
+        // check if message 2 equals to x + x, if 3 is x + x + x
+        // worst case if not works then do just 1 byte arrays
+
+        // other idea eliminate r'-1 in encryption and r in key derivation to see if that would work instead
+
         // scalar multiplication of x with ki
         crypto_ecc256_scalar_mult(result2_buf, enc->x, &sa->msk.k[j * SEC_AUTH_MSK_K_SIZE]);
 
@@ -557,6 +619,7 @@ static void secure_auth_encrypt(CTAP_secure_auth * sa, SecureAuthEncrypt * enc)
 
         // modular inverse of ri
         crypto_ecc256_modular_inverse(r_mod_inv, &sa->msk.r[j * SEC_AUTH_MSK_R_SIZE]);
+
 
         // scalar multiplication of result of addition and mod inv of ri
         crypto_ecc256_scalar_mult(&enc->ciphertext[j*SEC_AUTH_POINT_SIZE], result_addition_buf, r_mod_inv);
