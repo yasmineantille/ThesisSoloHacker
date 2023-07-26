@@ -371,7 +371,6 @@ uint8_t parse_verify_exclude_list(CborValue * val)
 
 uint8_t parse_rp_id(struct rpId * rp, CborValue * val)
 {
-    printf1(TAG_GREEN, "parse_rp_id() called\n");
     size_t sz = DOMAIN_NAME_MAX_SIZE;
     if (cbor_value_get_type(val) != CborTextStringType)
     {
@@ -592,9 +591,9 @@ uint8_t parse_biometric_template(CborValue * it, CTAP_secure_auth * sa)
         ret = cbor_value_copy_byte_string(&arr, &sa->template[i*SEC_AUTH_TEMPLATE_SIZE], &sz, NULL);
         check_ret(ret);
 
-//        printf1(TAG_GREEN, "Parsed biometric template at position i = %d : ", i);
-//        dump_hex1(TAG_GREEN, &sa->template[i * SEC_AUTH_TEMPLATE_SIZE], SEC_AUTH_TEMPLATE_SIZE);
-//        printf("\n");
+        printf1(TAG_GREEN, "Parsed biometric template at position i = %d : ", i);
+        dump_hex1(TAG_GREEN, &sa->template[i * SEC_AUTH_TEMPLATE_SIZE], SEC_AUTH_TEMPLATE_SIZE);
+        printf("\n");
 
         ret = cbor_value_advance(&arr);
         check_ret(ret);
@@ -605,8 +604,10 @@ uint8_t parse_biometric_template(CborValue * it, CTAP_secure_auth * sa)
 /**
  * Parsing secure auth extension input
  */
-uint8_t ctap_parse_secure_auth(CborValue * val, CTAP_secure_auth * sa, uint8_t * sa_process)
+uint8_t ctap_parse_secure_auth(CborValue * val, CTAP_extensions * ext)
 {
+    CTAP_secure_auth * sa = &ext->secure_auth;
+    uint8_t * sa_process = &ext->sec_auth_process;
     CborValue map;
     size_t map_length;
     uint8_t parsed_count = 0;
@@ -906,7 +907,8 @@ uint8_t ctap_parse_extensions(CborValue * val, CTAP_extensions * ext)
             printf1(TAG_PARSE, "Received Secure Auth request\r\n");
             if (cbor_value_get_type(&map) == CborMapType)
             {
-                ret = ctap_parse_secure_auth(&map, &ext->secure_auth, &ext->sec_auth_process);
+                ret = ctap_parse_secure_auth(&map, ext);
+                //ret = ctap_parse_secure_auth(&map, &ext->secure_auth, &ext->sec_auth_process);
                 check_ret(ret);
 
                 ext->sec_auth_present = EXT_SEC_AUTH_PARSED;
@@ -1378,8 +1380,6 @@ uint8_t ctap_parse_cred_mgmt(CTAP_credMgmt * CM, uint8_t * request, int length)
 
 uint8_t ctap_parse_get_assertion(CTAP_getAssertion * GA, uint8_t * request, int length)
 {
-    printf1(TAG_GREEN, "ctap_parse_get_assertion() called \n");
-
     int ret;
     unsigned int i;
     int key;

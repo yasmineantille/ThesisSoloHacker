@@ -311,9 +311,6 @@ typedef struct {
     SecureAuthEncrypt enc;
 } CTAP_secure_auth;
 
-
-
-/// added extension for ping pong
 typedef struct
 {
     uint8_t hmac_secret_present;
@@ -327,7 +324,6 @@ typedef struct
 
     uint8_t sec_auth_present;
     uint8_t sec_auth_process;
-    uint8_t sec_auth_enrollment;
     CTAP_secure_auth secure_auth;
 } CTAP_extensions;
 
@@ -455,6 +451,7 @@ struct _getAssertionState {
     uint8_t customCredId[256];
     uint8_t customCredIdSize;
     // Adding Secure Auth stuff
+    SecureAuthMSK msk;
     SecureAuthKey secretKey;
     uint8_t rid[SEC_AUTH_RID_SIZE];
     SecureAuthEncrypt encryptionData;
