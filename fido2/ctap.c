@@ -461,53 +461,59 @@ static int is_cred_id_matching_rk(CredentialId * credId, CTAP_residentKey * rk)
 
 /**
  * Creates msk for secure auth extension
- * Uses private keys from elliptic curve key gen as random k numbers
+ * msk := (k, r)
  */
-static void ctap_sec_auth_create_msk(SecureAuthMSK * msk)
+static void secure_auth_setup(SecureAuthMSK * msk)
 {
-    uint8_t * buffer[64];   // buffer for discardable public key
+    uint8_t buffer[64];     // buffer for disposable public key
+    int i;
 
-    for (int i = 0; i < SEC_AUTH_MSK_N; i++) {
-        // generate random k_i as scalar on elliptic curve (private key)
+    // Generate random private keys from ecc for k and r
+    for (i = 0; i < SEC_AUTH_MSK_N; i++) {
+        printf1(TAG_CTAP, "Generating msk for i=%d \n", i);
         crypto_ecc256_make_key_pair(buffer, &msk->k[i*SEC_AUTH_MSK_K_SIZE]);
+        printf1(TAG_GREEN, "Generated k: ");
+        dump_hex1(TAG_GREEN, &msk->k[i*SEC_AUTH_MSK_K_SIZE], SEC_AUTH_MSK_K_SIZE);
 
-//        printf1(TAG_GREEN, "Generated k: ");
-//        dump_hex1(TAG_GREEN, (uint8_t *) &msk->k[i*SEC_AUTH_MSK_K_SIZE], SEC_AUTH_MSK_K_SIZE);
-//        printf1(TAG_GREEN, "\n");
-
-        // generate random r_i as scalar on elliptic curve (private key)
         crypto_ecc256_make_key_pair(buffer, &msk->r[i * SEC_AUTH_MSK_R_SIZE]);
+        printf1(TAG_GREEN, "Generated r: ");
+        dump_hex1(TAG_GREEN, &msk->r[i * SEC_AUTH_MSK_R_SIZE], SEC_AUTH_MSK_R_SIZE);
 
-//        printf1(TAG_GREEN, "Generated r: ");
-//        dump_hex1(TAG_GREEN, (uint8_t *) &msk->r[i * SEC_AUTH_MSK_R_SIZE], SEC_AUTH_MSK_R_SIZE);
-//        printf1(TAG_GREEN, "\n");
+        // Save to authenticator state
+        memmove(&getAssertionState.msk.k[i * SEC_AUTH_MSK_K_SIZE], &msk->k[i * SEC_AUTH_MSK_K_SIZE], SEC_AUTH_MSK_K_SIZE);
+        memmove(&getAssertionState.msk.r[i * SEC_AUTH_MSK_R_SIZE], &msk->r[i * SEC_AUTH_MSK_R_SIZE], SEC_AUTH_MSK_R_SIZE);
     }
 }
 
 /**
  * Key derivation for secure auth extension
- *
+ * sk_y = (k_y, y_bar)
  */
 static void secure_auth_key_derivation(CTAP_secure_auth * SA)
 {
     SecureAuthMSK * msk = &SA->msk;
     SecureAuthKey * sa_key = &SA->key;
-    uint8_t * template = &SA->template;
 
     // calculate ri * yi
     for(int i = 0; i < 5; i++) {
-        crypto_calculate_mod_p(&sa_key->y_bar[i * SEC_AUTH_SCALAR_SIZE], &template[i * SEC_AUTH_SCALAR_SIZE], &msk->r[i * SEC_AUTH_MSK_R_SIZE]);
-//        printf1(TAG_GREEN, "Resulting y_bar value: ");
-//        dump_hex1(TAG_GREEN, &sa_key->y_bar[i * SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE);
-//        printf1(TAG_GREEN, "\n");
+        printf1(TAG_GREEN, "Received template value for i=%d: ", i);
+        dump_hex1(TAG_GREEN, &SA->template[i * SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE);
+
+        printf1(TAG_GREEN, "For mod p calculation r value is: ");
+        dump_hex1(TAG_GREEN, &msk->r[i * SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE);
+
+        crypto_calculate_mod_p(&sa_key->y_bar[i * SEC_AUTH_SCALAR_SIZE], &SA->template[i * SEC_AUTH_SCALAR_SIZE], &msk->r[i * SEC_AUTH_MSK_R_SIZE]);
+        printf1(TAG_GREEN, "Resulting y_bar value: ");
+        dump_hex1(TAG_GREEN, &sa_key->y_bar[i * SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE);
+        printf1(TAG_GREEN, "\n");
+
         memmove(&getAssertionState.secretKey.y_bar[i * SEC_AUTH_SCALAR_SIZE], &sa_key->y_bar[i * SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE);
     }
 
     // calculate ki * yi
-    crypto_calculate_inner_product(sa_key->k_y, msk->k, template, 5);
-//    printf1(TAG_GREEN, "Resulting k_y value: ");
-//    dump_hex1(TAG_GREEN, sa_key->k_y, SEC_AUTH_SCALAR_SIZE);
-//    printf1(TAG_GREEN, "\n");
+    crypto_calculate_inner_product(sa_key->k_y, msk->k, SA->template, 5);
+    printf1(TAG_GREEN, "Resulting k_y value: ");
+    dump_hex1(TAG_GREEN, sa_key->k_y, SEC_AUTH_SCALAR_SIZE);
 
     memmove(&getAssertionState.secretKey.k_y, sa_key->k_y, SEC_AUTH_SCALAR_SIZE);
 }
@@ -523,11 +529,12 @@ static void secure_auth_key_derivation(CTAP_secure_auth * SA)
  */
 static void secure_auth_encrypt(CTAP_secure_auth * sa, SecureAuthEncrypt * enc)
 {
+    printf1(TAG_CTAP, "Before encryption!\n");
+
     // For testing print out data to encrypt
     for (int i = 0; i < 5; i++) {
-        printf1(TAG_GREEN, "Before encryption: printing z for i=%d : ", i);
+        printf1(TAG_GREEN, "printing z for i=%d : ", i);
         dump_hex1(TAG_GREEN, &sa->template[i*SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE);
-        printf1(TAG_GREEN, "\n");
     }
 
     uint8_t priv_key_buf[SEC_AUTH_SCALAR_SIZE];  // buffer for private key that can be dismissed
@@ -536,90 +543,69 @@ static void secure_auth_encrypt(CTAP_secure_auth * sa, SecureAuthEncrypt * enc)
     crypto_ecc256_make_key_pair(enc->x, priv_key_buf);
     printf1(TAG_GREEN, "Generated x: ");
     dump_hex1(TAG_GREEN, enc->x, SEC_AUTH_POINT_SIZE);
-    printf1(TAG_GREEN, "\n");
 
-    // for testing right now
-    unsigned char byte_string[] = {
-            0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-            0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-            0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-            0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01
-    };
-
-
-    int result = memcmp(byte_string, &sa->template[0 * SEC_AUTH_SCALAR_SIZE], sizeof(byte_string));
-//    if (result == 0) {
-//        printf1(TAG_GREEN,"The byte strings are equal.\n");
-//    } else {
-//        printf1(TAG_GREEN, "The byte strings are not equal.\n");
-//    }
-
-    // for test
+    /// ----------------
+    // For testing with scalar multiplication of a given point with 2
     uint8_t scalar[32];
-    for (int i = 0; i<32; i++) {
-        scalar[i] = 1;
+    for (int i = 1; i<32; i++) {
+        scalar[i] = 0;
     }
+    scalar[31] = 2;
     printf1(TAG_GREEN, "Scalar value: ");
     dump_hex1(TAG_GREEN, scalar, 32);
+
+    uint8_t testBytes[] = {
+            0x04, 0x7D, 0x9C, 0xD4, 0x49, 0xB9, 0x17, 0x3A, 0xDB, 0xC1, 0x9B, 0x64, 0xAF, 0x8E, 0xC6, 0x6F,
+            0xCC, 0xBB, 0xBE, 0xF0, 0x72, 0x47, 0xD1, 0x77, 0x82, 0x91, 0x94, 0x2B, 0x7D, 0xB1, 0xC4, 0x97,
+            0x06, 0x2E, 0x14, 0xAD, 0x13, 0x13, 0x1A, 0x91, 0x7A, 0x59, 0xA2, 0x1E, 0x18, 0x9C, 0x3F, 0xB9,
+            0x0A, 0x7A, 0xEC, 0xEB, 0xF4, 0xAA, 0xCC, 0x4C, 0x6D, 0x2E, 0x0A, 0xC8, 0xBE, 0xFC, 0x53, 0x45
+    };
 
     // Test 1
     uint8_t* test_buf = (uint8_t*)malloc(SEC_AUTH_POINT_SIZE);
-    crypto_ecc256_scalar_mult(test_buf, enc->x, scalar);
+    crypto_ecc256_scalar_mult(test_buf, testBytes, scalar);
     printf1(TAG_GREEN, "result of scalar multiplication of x with scalar: ");
     dump_hex1(TAG_GREEN, test_buf, SEC_AUTH_POINT_SIZE);
     printf1(TAG_GREEN, "\n");
+    /// ----------------
 
-    // Test 2
-    memset(scalar, 0, sizeof(scalar));
-    scalar[0] = 1;
-    printf1(TAG_GREEN, "Scalar value: ");
-    dump_hex1(TAG_GREEN, scalar, 32);
-    crypto_ecc256_scalar_mult(test_buf, enc->x, scalar);
-    printf1(TAG_GREEN, "result of scalar multiplication of x with scalar: ");
-    dump_hex1(TAG_GREEN, test_buf, SEC_AUTH_POINT_SIZE);
-    printf1(TAG_GREEN, "\n");
-
-    // Test 3
-    memset(scalar, 0, sizeof(scalar));
-    scalar[31] = 1;
-    printf1(TAG_GREEN, "Scalar value: ");
-    dump_hex1(TAG_GREEN, scalar, 32);
-    crypto_ecc256_scalar_mult(test_buf, enc->x, scalar);
-    printf1(TAG_GREEN, "result of scalar multiplication of x with scalar: ");
-    dump_hex1(TAG_GREEN, test_buf, SEC_AUTH_POINT_SIZE);
-    printf1(TAG_GREEN, "\n");
+    // buffers for encryption intermediate results
+    uint8_t* result1_buf = (uint8_t*)malloc(SEC_AUTH_POINT_SIZE);
+    uint8_t* result2_buf = (uint8_t*)malloc(SEC_AUTH_POINT_SIZE);
+    uint8_t* result_addition_buf = (uint8_t*)malloc(SEC_AUTH_POINT_SIZE);
+    uint8_t* r_mod_inv = (uint8_t*)malloc(SEC_AUTH_MSK_R_SIZE);
 
     // encrypt message
     for (int j = 0; j < 5; ++j) {
-        // buffers for encryption intermediate results
-        uint8_t* result1_buf = (uint8_t*)malloc(SEC_AUTH_POINT_SIZE);
-        uint8_t* result2_buf = (uint8_t*)malloc(SEC_AUTH_POINT_SIZE);
-        uint8_t* result_addition_buf = (uint8_t*)malloc(SEC_AUTH_POINT_SIZE);
-        uint8_t* r_mod_inv = (uint8_t*)malloc(SEC_AUTH_MSK_R_SIZE);
-
         // scalar multiplication of x with zi
+        printf1(TAG_GREEN, "Scalar multiplication of x with zi for j = %d \n", j);
+        dump_hex1(TAG_GREEN, (uint8_t*) &sa->template[j*SEC_AUTH_SCALAR_SIZE], SEC_AUTH_SCALAR_SIZE);
+
         crypto_ecc256_scalar_mult(result1_buf, enc->x, &sa->template[j * SEC_AUTH_SCALAR_SIZE]);
 
-        printf1(TAG_GREEN, "result of scalar multiplication of x with zi for j = %d \n", j);
-        dump_hex1(TAG_GREEN, result1_buf, SEC_AUTH_POINT_SIZE);
-        printf1(TAG_GREEN, "\n");
-
-        // TODO
-        // check wether result is same as x if message is 1
-        // check if message 2 equals to x + x, if 3 is x + x + x
-        // worst case if not works then do just 1 byte arrays
-
-        // other idea eliminate r'-1 in encryption and r in key derivation to see if that would work instead
+        printf1(TAG_GREEN, "Result of scalar multiplication of x with zi: ");
+        dump_hex1(TAG_GREEN, (uint8_t*) result1_buf, SEC_AUTH_POINT_SIZE);
 
         // scalar multiplication of x with ki
+        printf1(TAG_GREEN, "Scalar multiplication of x with ki for j = %d \n", j);
+        printf1(TAG_GREEN, "ki is: ");
+        dump_hex1(TAG_GREEN, (uint8_t*) &sa->msk.k[j * SEC_AUTH_MSK_K_SIZE], SEC_AUTH_MSK_K_SIZE);
+        printf1(TAG_GREEN, "\n");
+
         crypto_ecc256_scalar_mult(result2_buf, enc->x, &sa->msk.k[j * SEC_AUTH_MSK_K_SIZE]);
 
+        printf1(TAG_GREEN, "Result of scalar multiplication of x with ki: ");
+        dump_hex1(TAG_GREEN, (uint8_t*) result2_buf, SEC_AUTH_POINT_SIZE);
+        printf1(TAG_GREEN, "\n");
+
         // addition of two previous results
+        printf1(TAG_GREEN, "Addition of two previous results for j = %d \n", j);
         crypto_ecc256_addition(result_addition_buf, result1_buf, result2_buf);
+        printf1(TAG_GREEN, "Result of addition: ");
+        dump_hex1(TAG_GREEN, result_addition_buf, SEC_AUTH_POINT_SIZE);
 
         // modular inverse of ri
         crypto_ecc256_modular_inverse(r_mod_inv, &sa->msk.r[j * SEC_AUTH_MSK_R_SIZE]);
-
 
         // scalar multiplication of result of addition and mod inv of ri
         crypto_ecc256_scalar_mult(&enc->ciphertext[j*SEC_AUTH_POINT_SIZE], result_addition_buf, r_mod_inv);
@@ -628,12 +614,12 @@ static void secure_auth_encrypt(CTAP_secure_auth * sa, SecureAuthEncrypt * enc)
         printf1(TAG_GREEN, "Result of encryption: ");
         dump_hex1(TAG_GREEN, &enc->ciphertext[j*SEC_AUTH_POINT_SIZE], SEC_AUTH_POINT_SIZE);
         printf1(TAG_GREEN, "\n");
-
-        free(result1_buf);
-        free(result2_buf);
-        free(result_addition_buf);
-        free(r_mod_inv);
     }
+
+    free(result1_buf);
+    free(result2_buf);
+    free(result_addition_buf);
+    free(r_mod_inv);
 
     memmove(&getAssertionState.encryptionData.x, enc->x, SEC_AUTH_POINT_SIZE);
     memmove(&getAssertionState.encryptionData.ciphertext, enc->ciphertext, SEC_AUTH_MSK_N*SEC_AUTH_POINT_SIZE);
@@ -756,8 +742,7 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
         {
             printf1(TAG_CTAP, "Processing secure-auth extension registration request\r\n");
 
-            // create msk
-            ctap_sec_auth_create_msk(&ext->secure_auth.msk);
+            secure_auth_setup(&ext->secure_auth.msk);   // call Secure Auth setup to create msk
 
             // create key
             // TODO: pass biometrics over
@@ -779,6 +764,17 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
         if (ext->sec_auth_process == EXT_SEC_AUTH_AUTH_REQUEST)
         {
             printf1(TAG_CTAP, "Processing secure-auth extension authentication request\r\n");
+
+            // Get msk from authenticator state
+            for (int i = 0; i < SEC_AUTH_MSK_N; i++) {
+                memmove(&ext->secure_auth.msk.k[i * SEC_AUTH_MSK_K_SIZE],
+                        &getAssertionState.msk.k[i * SEC_AUTH_MSK_K_SIZE],
+                        SEC_AUTH_MSK_K_SIZE);
+                memmove(&ext->secure_auth.msk.r[i * SEC_AUTH_MSK_R_SIZE],
+                        &getAssertionState.msk.r[i * SEC_AUTH_MSK_R_SIZE],
+                        SEC_AUTH_MSK_R_SIZE);
+            }
+
             // encryption
             secure_auth_encrypt(&ext->secure_auth, &ext->secure_auth.enc);
         }
