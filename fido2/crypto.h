@@ -94,7 +94,7 @@ void crypto_ecc256_scalar_mult_with_basepoint(uint8_t * result, uint8_t * scalar
  * @param b Second array for inner product
  * @param elements  Number of elements in an array.
  */
-void crypto_calculate_inner_product(uint8_t * result, uint8_t * a, uint8_t * b, int elements);
+void crypto_calculate_inner_product(uint8_t * result, uint8_t * a, uint8_t * b);
 
 /**
  * Calls multiplication mod p of micro-ecc library

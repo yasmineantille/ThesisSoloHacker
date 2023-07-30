@@ -337,10 +337,24 @@ void crypto_ecc256_scalar_mult_with_basepoint(uint8_t * result, uint8_t * scalar
 }
 
 
-void crypto_calculate_inner_product(uint8_t * result, uint8_t * k, uint8_t * y, int elements) {
-    if (uECC_inner_product(result, k, y, elements, _es256_curve) != 1) {
-        printf1(TAG_ERR, "Error, uECC_inner_product() failed\n");
-        exit(1);
+void crypto_calculate_inner_product(uint8_t * result, uint8_t * k, uint8_t * y) {
+    memset(result, 0, sizeof(SEC_AUTH_SCALAR_SIZE));  // set result to 0
+    uint8_t temp_result[SEC_AUTH_SCALAR_SIZE];
+
+    for(int i = 0; i < 5; i++) {
+        if(uECC_multiply_mod_p(temp_result, &k[i*SEC_AUTH_SCALAR_SIZE], &y[i*SEC_AUTH_SCALAR_SIZE], _es256_curve) != 1) {
+            printf1(TAG_ERR, "Error, uECC_multiply_mod_p() failed\n");
+            exit(1);
+        }
+        printf1(TAG_GREEN, "Resulting multiply mod p value for inner product: ");
+        dump_hex1(TAG_GREEN, temp_result, SEC_AUTH_SCALAR_SIZE);
+
+        if(uECC_add_mod_p(result, result, temp_result, _es256_curve) != 1) {
+            printf1(TAG_ERR, "Error, uECC_add_mod_p() failed\n");
+            exit(1);
+        }
+        printf1(TAG_GREEN, "Resulting add result for inner product: ");
+        dump_hex1(TAG_GREEN, result, SEC_AUTH_SCALAR_SIZE);
     }
 }
 
