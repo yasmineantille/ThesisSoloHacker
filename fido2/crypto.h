@@ -104,6 +104,6 @@ void crypto_calculate_inner_product(uint8_t * result, uint8_t * a, uint8_t * b);
  * @param y scalar y for multiplication
  * @param r scalar r for multiplication
  */
-void crypto_calculate_mod_p(uint8_t * result, uint8_t * y, uint8_t * r);
+void crypto_calculate_mod_mult(uint8_t * result, uint8_t * y, uint8_t * r);
 
 #endif
